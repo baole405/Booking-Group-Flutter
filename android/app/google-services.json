@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "148956304557",
+    "project_id": "exe-platform",
+    "storage_bucket": "exe-platform.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:148956304557:android:d282b64e71d49071b6a224",
+        "android_client_info": {
+          "package_name": "com.example.booking_group_flutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "148956304557-vimujk9msu533g182jco2bvact3g8hkg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDDcfKg1aD1CJvzaI2rx1y96tA3tRVe6rU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "148956304557-vimujk9msu533g182jco2bvact3g8hkg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
