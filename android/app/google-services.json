@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "148956304557-jn8e5a0i3vnvudqe9cec2c96c5bec72s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.booking_group_flutter",
+            "certificate_hash": "c02b7ea8960f3d24c47999e0da71695658e34097"
+          }
+        },
+        {
           "client_id": "148956304557-vimujk9msu533g182jco2bvact3g8hkg.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -29,6 +37,13 @@
             {
               "client_id": "148956304557-vimujk9msu533g182jco2bvact3g8hkg.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "148956304557-po5tes337e6r5io4497omktsf4t5em68.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.bookingGroupFlutter"
+              }
             }
           ]
         }
