@@ -1,7 +1,20 @@
+import 'package:booking_group_flutter/firebase_options.dart';
+import 'package:booking_group_flutter/home_page.dart';
 import 'package:booking_group_flutter/signup_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    print('Error initializing Firebase: $e');
+  }
   runApp(const MyApp());
 }
 
@@ -38,7 +51,18 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const SignUpPage(),
+      home: StreamBuilder(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasData) {
+            return const MyHomePage();
+          }
+          return const SignUpPage();
+        },
+      ),
     );
   }
 }
