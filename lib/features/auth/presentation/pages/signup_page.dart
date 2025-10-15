@@ -1,4 +1,4 @@
-import 'package:booking_group_flutter/login_page.dart';
+import 'package:booking_group_flutter/features/auth/presentation/pages/login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 

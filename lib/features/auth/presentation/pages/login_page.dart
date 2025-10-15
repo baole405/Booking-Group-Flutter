@@ -1,4 +1,4 @@
-import 'package:booking_group_flutter/signup_page.dart';
+import 'package:booking_group_flutter/features/auth/presentation/pages/signup_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -41,11 +41,15 @@ class _LoginPageState extends State<LoginPage> {
     try {
       print('Starting Google Sign-In...');
 
-      // Configure GoogleSignIn with explicit client ID from Firebase
+      // Configure GoogleSignIn to always show account picker
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId:
             '148956304557-vimujk9msu533g182jco2bvact3g8hkg.apps.googleusercontent.com',
+        forceCodeForRefreshToken: true,
       );
+
+      // Sign out first to clear cached account, then sign in
+      await googleSignIn.signOut();
 
       // Trigger the authentication flow
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
