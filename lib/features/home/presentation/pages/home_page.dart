@@ -5,7 +5,9 @@ import 'package:booking_group_flutter/features/home/presentation/widgets/group_r
 import 'package:booking_group_flutter/features/home/presentation/widgets/major_group_card.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/round_icon_button.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/section_header.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,6 +28,22 @@ class _HomePageState extends State<HomePage> {
   int _selectedCategoryIndex = 0;
   int _selectedColorIndex = 0;
 
+  Future<void> _handleLogout() async {
+    try {
+      await GoogleSignIn().signOut();
+    } catch (e) {
+      debugPrint('Google sign out error: $e');
+    }
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to logout: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,8 +55,7 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _Header(
-                onBackTap: () {},
-                onMenuTap: () {},
+                onLogoutTap: _handleLogout,
               ),
               const SizedBox(height: 28),
               Text(
@@ -150,21 +167,24 @@ class _HomePageState extends State<HomePage> {
 
 class _Header extends StatelessWidget {
   const _Header({
-    required this.onBackTap,
-    required this.onMenuTap,
+    this.onBackTap,
+    required this.onLogoutTap,
   });
 
-  final VoidCallback onBackTap;
-  final VoidCallback onMenuTap;
+  final VoidCallback? onBackTap;
+  final VoidCallback onLogoutTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        RoundIconButton(
-          icon: Icons.arrow_back_ios_new,
-          onTap: onBackTap,
-        ),
+        if (onBackTap != null)
+          RoundIconButton(
+            icon: Icons.arrow_back_ios_new,
+            onTap: onBackTap,
+          )
+        else
+          const SizedBox(width: 44, height: 44),
         Expanded(
           child: Center(
             child: Image.asset(
@@ -173,14 +193,50 @@ class _Header extends StatelessWidget {
             ),
           ),
         ),
-        RoundIconButton(
-          icon: Icons.more_horiz,
-          onTap: onMenuTap,
+        PopupMenuButton<_MenuAction>(
+          onSelected: (value) {
+            if (value == _MenuAction.logout) {
+              onLogoutTap();
+            }
+          },
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          offset: const Offset(0, 46),
+          itemBuilder: (context) => [
+            PopupMenuItem<_MenuAction>(
+              value: _MenuAction.logout,
+              child: Row(
+                children: [
+                  Icon(Icons.logout, color: Colors.grey.shade700, size: 20),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Logout',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+          child: Container(
+            height: 44,
+            width: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey.shade100,
+            ),
+            child: Icon(
+              Icons.more_horiz,
+              color: Colors.grey.shade800,
+            ),
+          ),
         ),
       ],
     );
   }
 }
+
+enum _MenuAction { logout }
 
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.onTapFilter});

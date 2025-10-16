@@ -1,4 +1,5 @@
 import 'package:booking_group_flutter/features/home/presentation/pages/home_page.dart';
+import 'package:booking_group_flutter/features/notifications/presentation/pages/notification_page.dart';
 import 'package:booking_group_flutter/features/profile/presentation/pages/profile_page.dart';
 import 'package:booking_group_flutter/features/shell/presentation/widgets/rounded_bottom_navigation.dart';
 import 'package:flutter/material.dart';
@@ -13,13 +14,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
-  late final List<Widget> _pages = [
-    const HomePage(),
-    const _PlaceholderPage(label: 'Search'),
-    const _PlaceholderPage(label: 'Inbox'),
-    const _PlaceholderPage(label: 'Notifications'),
-    const ProfilePage(),
-  ];
+  late final List<Widget> _pages;
 
   final List<IconData> _icons = const [
     Icons.home_outlined,
@@ -28,6 +23,30 @@ class _AppShellState extends State<AppShell> {
     Icons.notifications_none,
     Icons.person_outline,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      const HomePage(),
+      const _PlaceholderPage(label: 'Search'),
+      const _PlaceholderPage(label: 'Inbox'),
+      NotificationPage(
+        onBack: () {
+          setState(() {
+            _currentIndex = 0;
+          });
+        },
+      ),
+      ProfilePage(
+        onBack: () {
+          setState(() {
+            _currentIndex = 0;
+          });
+        },
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

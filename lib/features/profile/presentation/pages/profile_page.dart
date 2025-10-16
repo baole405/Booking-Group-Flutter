@@ -2,7 +2,9 @@ import 'package:booking_group_flutter/app/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.onBack});
+
+  final VoidCallback? onBack;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -53,7 +55,11 @@ class _ProfilePageState extends State<ProfilePage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () {
-            Navigator.of(context).maybePop();
+            if (widget.onBack != null) {
+              widget.onBack!();
+            } else {
+              Navigator.of(context).maybePop();
+            }
           },
         ),
         title: const Text('Edit Profile'),

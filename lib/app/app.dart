@@ -1,5 +1,5 @@
 import 'package:booking_group_flutter/app/theme/app_theme.dart';
-import 'package:booking_group_flutter/features/auth/presentation/pages/signup_page.dart';
+import 'package:booking_group_flutter/features/auth/presentation/pages/login_page.dart';
 import 'package:booking_group_flutter/features/shell/presentation/pages/app_shell.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +34,7 @@ class _AuthGate extends StatelessWidget {
         if (snapshot.hasData) {
           return const AppShell();
         }
-        return const SignUpPage();
+        return const LoginPage();
       },
     );
   }
