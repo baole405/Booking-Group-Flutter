@@ -19,7 +19,6 @@ class _AppShellState extends State<AppShell> {
   final List<IconData> _icons = const [
     Icons.home_outlined,
     Icons.search,
-    Icons.mail_outline,
     Icons.notifications_none,
     Icons.person_outline,
   ];
@@ -30,7 +29,6 @@ class _AppShellState extends State<AppShell> {
     _pages = [
       const HomePage(),
       const _PlaceholderPage(label: 'Search'),
-      const _PlaceholderPage(label: 'Inbox'),
       NotificationPage(
         onBack: () {
           setState(() {
