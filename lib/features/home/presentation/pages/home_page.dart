@@ -1,13 +1,17 @@
-import 'package:booking_group_flutter/app/theme/app_theme.dart';
-import 'package:booking_group_flutter/features/home/presentation/widgets/group_recommendation_card.dart';
-import 'package:booking_group_flutter/features/home/presentation/widgets/major_group_card.dart';
-import 'package:booking_group_flutter/features/home/presentation/widgets/section_header.dart';
+import 'dart:convert';
+
+import 'package:booking_group_flutter/core/services/api_service.dart';
 import 'package:booking_group_flutter/models/group.dart';
-import 'package:booking_group_flutter/resources/group_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+/// 🏠 Home Page - Redesigned with clean architecture
+///
+/// Features:
+/// - Auto load groups on login (no hot restart needed)
+/// - Clear layout separation
+/// - Better state management
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -16,326 +20,471 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final GroupApi _groupApi = const GroupApi();
-  late Future<List<Group>> _groupsFuture;
+  final ApiService _apiService = ApiService();
+
+  // State variables
+  List<Group> _recommendedGroups = [];
+  bool _isLoading = true;
+  String? _error;
+  String? _userEmail;
 
   @override
   void initState() {
     super.initState();
-    _groupsFuture = _groupApi.fetchGroups();
+    _loadUserData();
   }
 
+  /// Load user data and groups
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // Get user info
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        _userEmail = user.email;
+      }
+
+      // Load groups from Backend
+      await _loadGroups();
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+      });
+      print('❌ Error loading user data: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  /// Load groups from Backend API
+  Future<void> _loadGroups() async {
+    try {
+      // Check authentication first
+      final isAuth = await _apiService.isAuthenticated();
+      if (!isAuth) {
+        throw Exception('Not authenticated. Please login first.');
+      }
+
+      print('🔄 Fetching groups from Backend...');
+
+      // Call Backend API to get groups
+      final response = await _apiService.get('/api/groups?page=1&size=20');
+
+      print('📊 Response status: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = jsonResponse['data'];
+
+        // Parse the paginated response
+        if (data != null && data['content'] != null) {
+          final List<dynamic> groupsJson = data['content'];
+          final groups = groupsJson
+              .map((json) => Group.fromJson(json))
+              .toList();
+
+          setState(() {
+            _recommendedGroups = groups;
+          });
+
+          print('✅ Groups loaded successfully: ${groups.length} groups');
+        } else {
+          print('⚠️ No groups found in response');
+          setState(() {
+            _recommendedGroups = [];
+          });
+        }
+      } else {
+        print('❌ Backend returned error: ${response.statusCode}');
+        print('Response body: ${response.body}');
+        setState(() {
+          _recommendedGroups = [];
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading groups: $e');
+      setState(() {
+        _recommendedGroups = [];
+      });
+      rethrow;
+    }
+  }
+
+  /// Logout handler
   Future<void> _handleLogout() async {
     try {
-      await GoogleSignIn().signOut();
-    } catch (e) {
-      debugPrint('Google sign out error: $e');
-    }
-    try {
-      await FirebaseAuth.instance.signOut();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to logout: $e')),
+      // Show confirmation dialog
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Logout'),
+            ),
+          ],
+        ),
       );
+
+      if (confirmed != true) return;
+
+      // Logout from all services
+      await GoogleSignIn().signOut();
+      await FirebaseAuth.instance.signOut();
+      await _apiService.logout();
+
+      if (mounted) {
+        // Navigate to login page
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+      }
     }
   }
 
-  Future<void> _refreshGroups() async {
-    final future = _groupApi.fetchGroups();
-    setState(() {
-      _groupsFuture = future;
-    });
-    try {
-      await future;
-    } catch (_) {
-      // Errors are surfaced through the FutureBuilder in the UI.
-    }
+  /// Refresh data
+  Future<void> _handleRefresh() async {
+    await _loadUserData();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _refreshGroups,
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _Header(
-                  onLogoutTap: _handleLogout,
+          onRefresh: _handleRefresh,
+          child: CustomScrollView(
+            slivers: [
+              // 1️⃣ Header with Logo and Menu
+              _buildHeader(),
+
+              // 2️⃣ Search Bar
+              _buildSearchBar(),
+
+              // 3️⃣ Main Content
+              if (_isLoading)
+                _buildLoadingState()
+              else if (_error != null)
+                _buildErrorState()
+              else
+                _buildContent(),
+            ],
+          ),
+        ),
+      ),
+
+      // 4️⃣ Bottom Navigation
+      bottomNavigationBar: _buildBottomNavigation(),
+    );
+  }
+
+  // ============================================
+  // 📱 UI Components
+  // ============================================
+
+  /// Header with logo and menu
+  Widget _buildHeader() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Logo
+            Image.asset(
+              'assets/images/fpt_logo.png',
+              height: 40,
+              errorBuilder: (context, error, stackTrace) {
+                return const Text(
+                  'FPT',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFFF6600),
+                  ),
+                );
+              },
+            ),
+
+            // Menu button
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              itemBuilder: (context) => [
+                PopupMenuItem<String>(
+                  value: 'profile',
+                  child: Text(_userEmail ?? 'User'),
                 ),
-                const SizedBox(height: 28),
-                Text(
-                  'Search your dream team...',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 16),
-                _SearchField(onTapFilter: () {}),
-                const SizedBox(height: 24),
-                FutureBuilder<List<Group>>(
-                  future: _groupsFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 48),
-                        child: Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-                    if (snapshot.hasError) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 32),
-                        child: _ErrorState(onRetry: _refreshGroups),
-                      );
-                    }
-                    final groups = snapshot.data ?? const <Group>[];
-                    if (groups.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32),
-                        child: _EmptyState(),
-                      );
-                    }
-                    return GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: groups.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 0.82,
-                      ),
-                      itemBuilder: (context, index) {
-                        final group = groups[index];
-                        return GroupRecommendationCard(
-                          group: group,
-                          onJoinTap: () {},
-                        );
-                      },
-                    );
-                  },
-                ),
-                const SizedBox(height: 32),
-                SectionHeader(
-                  title: 'Relative to your major',
-                  onActionTap: () {},
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  height: 150,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _majorGroups.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 16),
-                    itemBuilder: (context, index) {
-                      final group = _majorGroups[index];
-                      return MajorGroupCard(
-                        title: group.title,
-                        subtitle: group.subtitle,
-                        icon: group.icon,
-                      );
-                    },
+                const PopupMenuDivider(),
+                PopupMenuItem<String>(
+                  value: 'logout',
+                  onTap: _handleLogout,
+                  child: const Row(
+                    children: [
+                      Icon(Icons.logout, size: 20),
+                      SizedBox(width: 8),
+                      Text('Logout'),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 24),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Search bar
+  Widget _buildSearchBar() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        child: TextField(
+          decoration: InputDecoration(
+            hintText: 'Search groups...',
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: Colors.grey[100],
+          ),
+          onChanged: (value) {
+            // TODO: Implement search
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Loading state
+  Widget _buildLoadingState() {
+    return const SliverFillRemaining(
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  /// Error state
+  Widget _buildErrorState() {
+    return SliverFillRemaining(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(
+              'Error: $_error',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.red),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _handleRefresh,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Main content
+  Widget _buildContent() {
+    return SliverList(
+      delegate: SliverChildListDelegate([
+        // Recommend For You Section (only section)
+        _buildSection(title: 'Recommend For You', groups: _recommendedGroups),
+
+        const SizedBox(height: 80), // Space for bottom nav
+      ]),
+    );
+  }
+
+  /// Section with title and group cards
+  Widget _buildSection({required String title, required List<Group> groups}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  // TODO: View all
+                },
+                child: const Text('View All'),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Group cards
+        if (groups.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(32.0),
+            child: Center(
+              child: Text(
+                'No groups found',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio:
+                  0.85, // Increased from 0.75 to make cards taller
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: groups.length > 4 ? 4 : groups.length,
+            itemBuilder: (context, index) {
+              final group = groups[index];
+              return _buildGroupCard(group);
+            },
+          ),
+      ],
+    );
+  }
+
+  /// Group card
+  Widget _buildGroupCard(Group group) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image placeholder
+          Container(
+            height: 120,
+            color: Colors.grey[300],
+            child: const Center(
+              child: Icon(Icons.group, size: 48, color: Colors.grey),
+            ),
+          ),
+
+          // Group info
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Title and Like button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        group.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.favorite_border,
+                      size: 16,
+                      color: Colors.grey[600],
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 6),
+
+                // Join button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // TODO: Join group
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.black87,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    child: const Text(
+                      'Join now',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.onLogoutTap,
-  });
-
-  final VoidCallback onLogoutTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const SizedBox(width: 44, height: 44),
-        Expanded(
-          child: Center(
-            child: Image.asset(
-              'assets/logo_fptu.png',
-              height: 72,
-            ),
-          ),
-        ),
-        PopupMenuButton<_MenuAction>(
-          onSelected: (value) {
-            if (value == _MenuAction.logout) {
-              onLogoutTap();
-            }
-          },
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          offset: const Offset(0, 46),
-          itemBuilder: (context) => [
-            PopupMenuItem<_MenuAction>(
-              value: _MenuAction.logout,
-              child: Row(
-                children: [
-                  Icon(Icons.logout, color: Colors.grey.shade700, size: 20),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Logout',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-          ],
-          child: Container(
-            height: 44,
-            width: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.grey.shade100,
-            ),
-            child: Icon(
-              Icons.more_horiz,
-              color: Colors.grey.shade800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-enum _MenuAction { logout }
-
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.onTapFilter});
-
-  final VoidCallback onTapFilter;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            decoration: InputDecoration(
-              hintText: 'Search your dream team...',
-              prefixIcon: const Icon(Icons.search),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        GestureDetector(
-          onTap: onTapFilter,
-          child: Container(
-            height: 56,
-            width: 56,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryDark,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: const Icon(
-              Icons.tune,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
-
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.error_outline, color: Colors.red.shade400, size: 36),
-          const SizedBox(height: 12),
-          Text(
-            'Không tải được danh sách nhóm.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: () {
-              onRetry();
-            },
-            child: const Text('Thử lại'),
-          ),
         ],
       ),
     );
   }
-}
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+  /// Bottom navigation bar
+  Widget _buildBottomNavigation() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Icon(Icons.groups_outlined, color: Colors.grey.shade500, size: 36),
-          const SizedBox(height: 12),
-          Text(
-            'Chưa có nhóm nào trong hệ thống.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          _buildNavItem(Icons.home, true),
+          _buildNavItem(Icons.search, false),
+          _buildNavItem(Icons.notifications, false),
+          _buildNavItem(Icons.person, false),
         ],
       ),
     );
   }
+
+  /// Bottom navigation item
+  Widget _buildNavItem(IconData icon, bool isActive) {
+    return IconButton(
+      icon: Icon(icon, color: isActive ? Colors.white : Colors.grey[600]),
+      onPressed: () {
+        // TODO: Navigate
+      },
+    );
+  }
 }
-
-class _MajorInfo {
-  const _MajorInfo({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-}
-
-const List<_MajorInfo> _majorGroups = [
-  _MajorInfo(
-    title: 'Group 13',
-    subtitle: '4 IT',
-    icon: Icons.group,
-  ),
-  _MajorInfo(
-    title: 'Group 21',
-    subtitle: '3 MC',
-    icon: Icons.people_alt_outlined,
-  ),
-  _MajorInfo(
-    title: 'Group Sigma',
-    subtitle: '4 Dev',
-    icon: Icons.code,
-  ),
-];

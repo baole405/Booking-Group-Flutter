@@ -1,3 +1,4 @@
+import 'package:booking_group_flutter/core/services/api_service.dart';
 import 'package:booking_group_flutter/features/auth/presentation/pages/signup_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final formKey = GlobalKey<FormState>();
+  final ApiService _apiService = ApiService();
 
   @override
   void dispose() {
@@ -82,7 +84,37 @@ class _LoginPageState extends State<LoginPage> {
       final userCredential = await FirebaseAuth.instance.signInWithCredential(
         credential,
       );
-      print('Google Sign-In successful: ${userCredential.user?.email}');
+      print('Firebase Auth successful: ${userCredential.user?.email}');
+
+      // ⭐ IMPORTANT: Get Firebase ID Token (what Backend needs)
+      final String? firebaseIdToken = await userCredential.user?.getIdToken();
+
+      if (firebaseIdToken == null) {
+        throw Exception('Failed to get Firebase ID Token');
+      }
+
+      print('Firebase ID Token obtained, sending to Backend...');
+
+      // ⭐ Step 4: Send Firebase ID Token to Backend API using ApiService
+      final bearerToken = await _apiService.loginWithGoogle(firebaseIdToken);
+
+      if (bearerToken == null) {
+        throw Exception('Failed to get Bearer Token from Backend');
+      }
+
+      print('Bearer Token received from Backend');
+
+      print('Google Sign-In complete! User authenticated with Backend');
+
+      // Success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sign-in successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       print('Firebase Auth Error: ${e.code} - ${e.message}');
       if (mounted) {
@@ -94,7 +126,7 @@ class _LoginPageState extends State<LoginPage> {
       print('Google Sign-In Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign-in failed. Please try again.')),
+          SnackBar(content: Text('Sign-in failed: ${e.toString()}')),
         );
       }
     }
