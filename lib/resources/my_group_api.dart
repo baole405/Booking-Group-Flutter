@@ -1,0 +1,139 @@
+import 'dart:convert';
+
+import 'package:booking_group_flutter/core/constants/api_constants.dart';
+import 'package:booking_group_flutter/models/group_member.dart';
+import 'package:booking_group_flutter/models/idea.dart';
+import 'package:booking_group_flutter/models/my_group.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// API Service for My Group operations
+class MyGroupApi {
+  /// Get bearer token from SharedPreferences
+  Future<String?> _getBearerToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('bearerToken');
+  }
+
+  /// Get the current user's group
+  Future<MyGroup?> getMyGroup() async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      print('🔄 Fetching my group from: ${ApiConstants.myGroupUrl}');
+
+      final response = await http.get(
+        Uri.parse(ApiConstants.myGroupUrl),
+        headers: ApiConstants.authHeaders(token),
+      );
+
+      print('📊 My Group Response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+
+        if (jsonResponse['status'] == 200 && jsonResponse['data'] != null) {
+          final myGroup = MyGroup.fromJson(jsonResponse['data']);
+          print('✅ My group loaded: ${myGroup.title}');
+          return myGroup;
+        }
+      } else if (response.statusCode == 404) {
+        print('⚠️ User is not in any group');
+        return null;
+      } else {
+        print('❌ Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to load my group: ${response.statusCode}');
+      }
+
+      return null;
+    } catch (e) {
+      print('❌ Error in getMyGroup: $e');
+      rethrow;
+    }
+  }
+
+  /// Get members of a specific group
+  Future<List<GroupMember>> getGroupMembers(int groupId) async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final url = ApiConstants.getGroupMembersUrl(groupId);
+      print('🔄 Fetching group members from: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: ApiConstants.authHeaders(token),
+      );
+
+      print('📊 Group Members Response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+
+        if (jsonResponse['status'] == 200 && jsonResponse['data'] != null) {
+          final List<dynamic> membersJson = jsonResponse['data'] as List;
+          final members = membersJson
+              .map((json) => GroupMember.fromJson(json))
+              .toList();
+
+          print('✅ ${members.length} members loaded');
+          return members;
+        }
+      } else {
+        print('❌ Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to load group members: ${response.statusCode}');
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Error in getGroupMembers: $e');
+      rethrow;
+    }
+  }
+
+  /// Get ideas of a specific group
+  Future<List<Idea>> getGroupIdeas(int groupId) async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final url = ApiConstants.getGroupIdeasUrl(groupId);
+      print('🔄 Fetching group ideas from: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: ApiConstants.authHeaders(token),
+      );
+
+      print('📊 Group Ideas Response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+
+        if (jsonResponse['status'] == 200 && jsonResponse['data'] != null) {
+          final List<dynamic> ideasJson = jsonResponse['data'] as List;
+          final ideas = ideasJson.map((json) => Idea.fromJson(json)).toList();
+
+          print('✅ ${ideas.length} ideas loaded');
+          return ideas;
+        }
+      } else {
+        print('❌ Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to load group ideas: ${response.statusCode}');
+      }
+
+      return [];
+    } catch (e) {
+      print('❌ Error in getGroupIdeas: $e');
+      rethrow;
+    }
+  }
+}

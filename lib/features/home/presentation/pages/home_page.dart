@@ -1,22 +1,14 @@
-import 'dart:convert';
-
 import 'package:booking_group_flutter/core/services/api_service.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/error_state_widget.dart';
-import 'package:booking_group_flutter/features/home/presentation/widgets/group_grid_section.dart';
+import 'package:booking_group_flutter/features/home/presentation/widgets/groups_your_group_section.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/home_header.dart';
-import 'package:booking_group_flutter/features/home/presentation/widgets/home_search_bar.dart';
+import 'package:booking_group_flutter/features/home/presentation/widgets/information_access_section.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/loading_widget.dart';
-import 'package:booking_group_flutter/models/group.dart';
+import 'package:booking_group_flutter/features/my_group/presentation/pages/my_group_detail_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-/// 🏠 Home Page - Clean Architecture
-///
-/// Features:
-/// - Auto load groups on login (no hot restart needed)
-/// - Separated into reusable components
-/// - Better state management
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -28,7 +20,6 @@ class _HomePageState extends State<HomePage> {
   final ApiService _apiService = ApiService();
 
   // State variables
-  List<Group> _recommendedGroups = [];
   bool _isLoading = true;
   String? _error;
   String? _userEmail;
@@ -39,7 +30,7 @@ class _HomePageState extends State<HomePage> {
     _loadUserData();
   }
 
-  /// Load user data and groups
+  /// Load user data
   Future<void> _loadUserData() async {
     setState(() {
       _isLoading = true;
@@ -52,9 +43,6 @@ class _HomePageState extends State<HomePage> {
       if (user != null) {
         _userEmail = user.email;
       }
-
-      // Load groups from Backend
-      await _loadGroups();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -64,60 +52,6 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  /// Load groups from Backend API
-  Future<void> _loadGroups() async {
-    try {
-      // Check authentication first
-      final isAuth = await _apiService.isAuthenticated();
-      if (!isAuth) {
-        throw Exception('Not authenticated. Please login first.');
-      }
-
-      print('🔄 Fetching groups from Backend...');
-
-      // Call Backend API to get groups
-      final response = await _apiService.get('/api/groups?page=1&size=20');
-
-      print('📊 Response status: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = jsonResponse['data'];
-
-        // Parse the paginated response
-        if (data != null && data['content'] != null) {
-          final List<dynamic> groupsJson = data['content'];
-          final groups = groupsJson
-              .map((json) => Group.fromJson(json))
-              .toList();
-
-          setState(() {
-            _recommendedGroups = groups;
-          });
-
-          print('✅ Groups loaded successfully: ${groups.length} groups');
-        } else {
-          print('⚠️ No groups found in response');
-          setState(() {
-            _recommendedGroups = [];
-          });
-        }
-      } else {
-        print('❌ Backend returned error: ${response.statusCode}');
-        print('Response body: ${response.body}');
-        setState(() {
-          _recommendedGroups = [];
-        });
-      }
-    } catch (e) {
-      print('❌ Error loading groups: $e');
-      setState(() {
-        _recommendedGroups = [];
-      });
-      rethrow;
     }
   }
 
@@ -163,7 +97,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// Refresh data
+  // Refresh data
   Future<void> _handleRefresh() async {
     await _loadUserData();
   }
@@ -184,15 +118,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-              // Search Bar
-              SliverToBoxAdapter(
-                child: HomeSearchBar(
-                  onSearch: (query) {
-                    // TODO: Implement search
-                  },
-                ),
-              ),
-
               // Main Content
               if (_isLoading)
                 const SliverFillRemaining(child: LoadingWidget())
@@ -207,22 +132,39 @@ class _HomePageState extends State<HomePage> {
                 SliverToBoxAdapter(
                   child: Column(
                     children: [
-                      GroupGridSection(
-                        title: 'Recommend For You',
-                        groups: _recommendedGroups,
-                        onViewAll: () {
-                          // TODO: Navigate to all groups
+                      const SizedBox(height: 20),
+
+                      // Section 1: Groups and Your Group
+                      GroupsYourGroupSection(
+                        onGroupsTap: () {
+                          // TODO: Navigate to Groups page
+                          print('Navigate to Groups');
                         },
-                        onGroupTap: (group) {
-                          // TODO: Navigate to group details
-                        },
-                        onGroupJoin: (group) {
-                          // TODO: Join group
-                        },
-                        onGroupFavorite: (group) {
-                          // TODO: Toggle favorite
+                        onYourGroupTap: () {
+                          // Navigate to My Group Detail page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MyGroupDetailPage(),
+                            ),
+                          );
                         },
                       ),
+
+                      const SizedBox(height: 32),
+
+                      // Section 2: Information Access
+                      InformationAccessSection(
+                        onForumTap: () {
+                          // TODO: Navigate to Forum page
+                          print('Navigate to Forum');
+                        },
+                        onIdeaTap: () {
+                          // TODO: Navigate to Idea page
+                          print('Navigate to Idea');
+                        },
+                      ),
+
                       const SizedBox(height: 100), // Space for bottom nav
                     ],
                   ),

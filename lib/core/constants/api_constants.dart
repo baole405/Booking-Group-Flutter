@@ -22,6 +22,13 @@ class ApiConstants {
   static const String groups = '/groups';
   static String get groupsUrl => '$baseApiUrl$groups';
 
+  static const String myGroup = '/groups/my-group';
+  static String get myGroupUrl => '$baseApiUrl$myGroup';
+
+  static String getGroupMembersUrl(int groupId) {
+    return '$baseApiUrl$groups/$groupId/members';
+  }
+
   static String getGroupsWithPagination({int page = 1, int size = 20}) {
     return '$baseApiUrl$groups?page=$page&size=$size';
   }
@@ -29,6 +36,10 @@ class ApiConstants {
   // Idea Endpoints
   static const String ideas = '/ideas';
   static String get ideasUrl => '$baseApiUrl$ideas';
+
+  static String getGroupIdeasUrl(int groupId) {
+    return '$baseApiUrl$ideas/group/$groupId';
+  }
 
   static String getIdeasWithPagination({int page = 1, int size = 20}) {
     return '$baseApiUrl$ideas?page=$page&size=$size';
