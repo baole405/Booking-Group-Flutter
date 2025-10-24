@@ -1,12 +1,10 @@
 import 'dart:convert';
 
+import 'package:booking_group_flutter/core/constants/api_constants.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl =
-      'https://swd392-exe-team-management-be.onrender.com';
-
   // Get Bearer Token from SharedPreferences
   Future<String?> _getBearerToken() async {
     final prefs = await SharedPreferences.getInstance();
@@ -45,11 +43,8 @@ class ApiService {
     }
 
     final response = await http.get(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
+      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
+      headers: ApiConstants.authHeaders(token),
     );
 
     return response;
@@ -61,18 +56,20 @@ class ApiService {
     Map<String, dynamic>? body,
     bool requiresAuth = true,
   }) async {
-    final headers = <String, String>{'Content-Type': 'application/json'};
+    final Map<String, String> headers;
 
     if (requiresAuth) {
       final token = await _getBearerToken();
       if (token == null) {
         throw Exception('No Bearer Token found. Please login first.');
       }
-      headers['Authorization'] = 'Bearer $token';
+      headers = ApiConstants.authHeaders(token);
+    } else {
+      headers = ApiConstants.jsonHeaders;
     }
 
     final response = await http.post(
-      Uri.parse('$baseUrl$endpoint'),
+      Uri.parse('${ApiConstants.baseUrl}$endpoint'),
       headers: headers,
       body: body != null ? jsonEncode(body) : null,
     );
@@ -110,17 +107,17 @@ class ApiService {
       print('=====================================');
       print('🔐 Starting Backend Authentication');
       print('=====================================');
-      print('Backend URL: $baseUrl/api/auth/google-login');
+      print('Backend URL: ${ApiConstants.googleLoginUrl}');
       print('Firebase ID Token length: ${idToken.length} characters');
       print('Token preview: ${idToken.substring(0, 50)}...');
 
-      final uri = Uri.parse('$baseUrl/api/auth/google-login');
+      final uri = Uri.parse(ApiConstants.googleLoginUrl);
       print('Sending POST request to: $uri');
 
       final response = await http
           .post(
             uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: ApiConstants.jsonHeaders,
             body: jsonEncode({'idToken': idToken}),
           )
           .timeout(

@@ -1,5 +1,13 @@
+import 'dart:convert';
+
 import 'package:booking_group_flutter/app/theme/app_theme.dart';
+import 'package:booking_group_flutter/core/constants/api_constants.dart';
+import 'package:booking_group_flutter/models/user_profile.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key, this.onBack});
@@ -11,49 +19,135 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  final TextEditingController _firstNameController =
-      TextEditingController(text: 'Benjamin');
-  final TextEditingController _lastNameController =
-      TextEditingController(text: 'Jack');
-  final TextEditingController _emailController =
-      TextEditingController(text: 'gmail@gmail.com');
-  final TextEditingController _phoneController =
-      TextEditingController(text: '+100******00');
-
-  bool _isEditing = false;
+  UserProfile? _userProfile;
+  String? _googleAvatar;
+  String? _googleName;
+  String? _googleEmail;
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
-  void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadUserProfile();
   }
 
-  void _toggleEditing() {
+  Future<void> _loadUserProfile() async {
     setState(() {
-      _isEditing = !_isEditing;
+      _isLoading = true;
+      _errorMessage = null;
     });
+
+    try {
+      // 1. Lấy thông tin từ Firebase Auth (Google Sign-In)
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        _googleAvatar = firebaseUser.photoURL;
+        _googleName = firebaseUser.displayName;
+        _googleEmail = firebaseUser.email;
+        debugPrint('✅ Firebase User: $_googleName ($_googleEmail)');
+        debugPrint('✅ Avatar URL: $_googleAvatar');
+      } else {
+        // Fallback: Thử lấy từ GoogleSignIn nếu Firebase không có
+        final googleSignIn = GoogleSignIn();
+        final googleUser = await googleSignIn.signInSilently();
+        if (googleUser != null) {
+          _googleAvatar = googleUser.photoUrl;
+          _googleName = googleUser.displayName;
+          _googleEmail = googleUser.email;
+          debugPrint('✅ Google User: $_googleName ($_googleEmail)');
+        }
+      }
+
+      // 2. Lấy thông tin từ Backend API (major, studentCode, etc.)
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('bearer_token');
+
+      if (token != null) {
+        try {
+          final response = await http.get(
+            Uri.parse(ApiConstants.myInfoUrl),
+            headers: ApiConstants.authHeaders(token),
+          );
+
+          debugPrint('📊 Profile API Response Status: ${response.statusCode}');
+
+          if (response.statusCode == 200) {
+            final Map<String, dynamic> jsonResponse = json.decode(
+              response.body,
+            );
+            final data = jsonResponse['data'];
+
+            if (data != null) {
+              _userProfile = UserProfile.fromJson(data);
+              debugPrint('✅ Backend profile loaded: ${_userProfile!.fullName}');
+            }
+          }
+        } catch (e) {
+          debugPrint('⚠️ Backend API error (continuing with Google info): $e');
+        }
+      }
+
+      // 3. Hiển thị thông tin (ưu tiên Google info cho avatar & name)
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('❌ Error loading profile: $e');
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
   }
 
-  void _saveChanges() {
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _isEditing = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully')),
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Đăng xuất'),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Đăng xuất'),
+          ),
+        ],
+      ),
     );
+
+    if (confirmed == true && mounted) {
+      // Đăng xuất Google
+      await GoogleSignIn().signOut();
+      // Đăng xuất Firebase
+      await FirebaseAuth.instance.signOut();
+      // Xóa token từ SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('bearer_token');
+      await prefs.remove('user_email');
+
+      if (mounted) {
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/login', (route) => false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
           onPressed: () {
             if (widget.onBack != null) {
               widget.onBack!();
@@ -62,131 +156,212 @@ class _ProfilePageState extends State<ProfilePage> {
             }
           },
         ),
-        title: const Text('Edit Profile'),
-        actions: [
-          TextButton(
-            onPressed: _toggleEditing,
-            child: Text(
-              _isEditing ? 'Cancel' : 'Edit',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
+        title: const Text(
+          'Hồ sơ cá nhân',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: false,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            _Avatar(isEditing: _isEditing),
-            const SizedBox(height: 16),
-            Text(
-              '${_firstNameController.text} ${_lastNameController.text}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text('Lỗi: $_errorMessage'),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadUserProfile,
+                    child: const Text('Thử lại'),
+                  ),
+                ],
+              ),
+            )
+          : _buildProfileContent(),
+    );
+  }
+
+  Widget _buildProfileContent() {
+    // Ưu tiên thông tin từ Google
+    final displayName = _googleName ?? _userProfile?.fullName ?? 'Người dùng';
+    final displayEmail = _googleEmail ?? _userProfile?.email ?? '';
+    final displayAvatar = _googleAvatar ?? _userProfile?.avatarUrl;
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          const SizedBox(height: 24),
+          // Profile Card
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline, size: 24),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Thông tin người dùng',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                // Avatar
+                Center(
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundColor: Colors.grey[200],
+                        backgroundImage: displayAvatar != null
+                            ? NetworkImage(displayAvatar)
+                            : null,
+                        child: displayAvatar == null
+                            ? Icon(
+                                Icons.person,
+                                size: 60,
+                                color: Colors.grey[400],
+                              )
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.lock,
+                            size: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Name
+                Text(
+                  displayName,
+                  style: const TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                // Student Code or identifier
+                Text(
+                  _userProfile?.identifier ?? 'Không rõ mã số',
+                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                // Email
+                _ProfileInfoRow(label: 'Email', value: displayEmail),
+                const SizedBox(height: 16),
+                // Major
+                if (_userProfile?.major != null)
+                  _ProfileInfoRow(
+                    label: 'Chuyên ngành',
+                    value: _userProfile!.major!.name,
+                  ),
+                const SizedBox(height: 24),
+                // Update Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Chức năng cập nhật thông tin đang phát triển',
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryDark,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cập nhật thông tin',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 32),
-            _ProfileTextField(
-              label: 'First name',
-              controller: _firstNameController,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 16),
-            _ProfileTextField(
-              label: 'Last name',
-              controller: _lastNameController,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 16),
-            _ProfileTextField(
-              label: 'Email',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 16),
-            _ProfileTextField(
-              label: 'Phone number',
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _isEditing ? _saveChanges : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryDark,
-                disabledBackgroundColor: Colors.grey.shade300,
-                disabledForegroundColor: Colors.grey.shade600,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          ),
+          const SizedBox(height: 24),
+          // Logout Button
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: OutlinedButton.icon(
+              onPressed: _logout,
+              icon: const Icon(Icons.logout, color: Colors.red),
+              label: const Text(
+                'Đăng xuất',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              child: const Text('Save Change'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                side: const BorderSide(color: Colors.red),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                minimumSize: const Size(double.infinity, 0),
+              ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.isEditing});
-
-  final bool isEditing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        CircleAvatar(
-          radius: 48,
-          backgroundColor: Colors.grey.shade200,
-          child: Icon(
-            Icons.person,
-            size: 48,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        Positioned(
-          bottom: 4,
-          right: 12,
-          child: Container(
-            height: 34,
-            width: 34,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppTheme.primaryDark,
-            ),
-            child: Icon(
-              isEditing ? Icons.edit : Icons.lock,
-              color: Colors.white,
-              size: 18,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileTextField extends StatelessWidget {
-  const _ProfileTextField({
-    required this.label,
-    required this.controller,
-    required this.enabled,
-    this.keyboardType,
-  });
+class _ProfileInfoRow extends StatelessWidget {
+  const _ProfileInfoRow({required this.label, required this.value});
 
   final String label;
-  final TextEditingController controller;
-  final bool enabled;
-  final TextInputType? keyboardType;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
@@ -195,19 +370,23 @@ class _ProfileTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: Colors.grey.shade600),
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          readOnly: !enabled,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: enabled ? Colors.grey.shade100 : Colors.grey.shade200,
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 16, color: Colors.black87),
           ),
         ),
       ],
