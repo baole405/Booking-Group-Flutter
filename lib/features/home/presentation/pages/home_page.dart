@@ -1,4 +1,5 @@
 import 'package:booking_group_flutter/core/services/api_service.dart';
+import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/error_state_widget.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/groups_your_group_section.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/home_header.dart';
@@ -137,8 +138,13 @@ class _HomePageState extends State<HomePage> {
                       // Section 1: Groups and Your Group
                       GroupsYourGroupSection(
                         onGroupsTap: () {
-                          // TODO: Navigate to Groups page
-                          print('Navigate to Groups');
+                          // Navigate to Groups List page
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const GroupsListPage(),
+                            ),
+                          );
                         },
                         onYourGroupTap: () {
                           // Navigate to My Group Detail page

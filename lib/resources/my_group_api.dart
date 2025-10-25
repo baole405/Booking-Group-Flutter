@@ -4,6 +4,7 @@ import 'package:booking_group_flutter/core/constants/api_constants.dart';
 import 'package:booking_group_flutter/models/group_member.dart';
 import 'package:booking_group_flutter/models/idea.dart';
 import 'package:booking_group_flutter/models/my_group.dart';
+import 'package:booking_group_flutter/models/user_profile.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -133,6 +134,146 @@ class MyGroupApi {
       return [];
     } catch (e) {
       print('❌ Error in getGroupIdeas: $e');
+      rethrow;
+    }
+  }
+
+  /// Get the leader of a specific group
+  Future<UserProfile?> getGroupLeader(int groupId) async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final url = ApiConstants.getGroupLeaderUrl(groupId);
+      print('🔄 Fetching group leader from: $url');
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: ApiConstants.authHeaders(token),
+      );
+
+      print('📊 Group Leader Response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+
+        if (jsonResponse['status'] == 200 && jsonResponse['data'] != null) {
+          final leader = UserProfile.fromJson(jsonResponse['data']);
+          print('✅ Leader loaded: ${leader.fullName}');
+          return leader;
+        }
+      } else {
+        print('❌ Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to load group leader: ${response.statusCode}');
+      }
+
+      return null;
+    } catch (e) {
+      print('❌ Error in getGroupLeader: $e');
+      rethrow;
+    }
+  }
+
+  /// Update an idea (Leader only)
+  Future<bool> updateIdea({
+    required int ideaId,
+    required String title,
+    required String description,
+  }) async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final url = ApiConstants.getIdeaUrl(ideaId);
+      print('🔄 Updating idea at: $url');
+
+      final response = await http.put(
+        Uri.parse(url),
+        headers: ApiConstants.authHeaders(token),
+        body: jsonEncode({'title': title, 'description': description}),
+      );
+
+      print('📊 Update Idea Response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        print('✅ Idea updated successfully');
+        return true;
+      } else {
+        print('❌ Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to update idea: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error in updateIdea: $e');
+      rethrow;
+    }
+  }
+
+  /// Create a new idea (Leader only)
+  Future<bool> createIdea({
+    required String title,
+    required String description,
+  }) async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final url = ApiConstants.ideasUrl;
+      print('🔄 Creating idea at: $url');
+
+      final response = await http.post(
+        Uri.parse(url),
+        headers: ApiConstants.authHeaders(token),
+        body: jsonEncode({'title': title, 'description': description}),
+      );
+
+      print('📊 Create Idea Response: ${response.statusCode}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('✅ Idea created successfully');
+        return true;
+      } else {
+        print('❌ Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to create idea: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error in createIdea: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete an idea (Leader only)
+  Future<bool> deleteIdea(int ideaId) async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final url = ApiConstants.getIdeaUrl(ideaId);
+      print('🔄 Deleting idea at: $url');
+
+      final response = await http.delete(
+        Uri.parse(url),
+        headers: ApiConstants.authHeaders(token),
+      );
+
+      print('📊 Delete Idea Response: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        print('✅ Idea deleted successfully');
+        return true;
+      } else {
+        print('❌ Error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to delete idea: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ Error in deleteIdea: $e');
       rethrow;
     }
   }

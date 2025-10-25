@@ -1,8 +1,9 @@
 import 'dart:convert';
 
-import 'package:booking_group_flutter/app/theme/app_theme.dart';
 import 'package:booking_group_flutter/core/constants/api_constants.dart';
+import 'package:booking_group_flutter/features/profile/presentation/widgets/major_selector_bottom_sheet.dart';
 import 'package:booking_group_flutter/models/user_profile.dart';
+import 'package:booking_group_flutter/resources/profile_update_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -136,6 +137,85 @@ class _ProfilePageState extends State<ProfilePage> {
           context,
         ).pushNamedAndRemoveUntil('/login', (route) => false);
       }
+    }
+  }
+
+  Future<void> _handleEditMajor() async {
+    final selectedMajor = await showMajorSelector(
+      context,
+      currentMajor: _userProfile?.major,
+    );
+
+    if (selectedMajor == null) return;
+
+    final majorId = selectedMajor.id;
+    if (majorId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chuyên ngành không hợp lệ'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show loading
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            SizedBox(width: 12),
+            Text('Đang cập nhật chuyên ngành...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    try {
+      final profileUpdateApi = ProfileUpdateApi();
+      final success = await profileUpdateApi.updateMajor(majorId);
+
+      if (!mounted) return;
+
+      if (success) {
+        // Reload profile to show updated data
+        await _loadUserProfile();
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cập nhật chuyên ngành thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cập nhật chuyên ngành thất bại. Vui lòng thử lại.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -286,41 +366,10 @@ class _ProfilePageState extends State<ProfilePage> {
                 _ProfileInfoRow(label: 'Email', value: displayEmail),
                 const SizedBox(height: 16),
                 // Major
-                if (_userProfile?.major != null)
-                  _ProfileInfoRow(
-                    label: 'Chuyên ngành',
-                    value: _userProfile!.major!.name,
-                  ),
-                const SizedBox(height: 24),
-                // Update Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Chức năng cập nhật thông tin đang phát triển',
-                          ),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryDark,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      'Cập nhật thông tin',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                _ProfileInfoRowWithEdit(
+                  label: 'Chuyên ngành',
+                  value: _userProfile?.major?.name ?? '',
+                  onEdit: _handleEditMajor,
                 ),
               ],
             ),
@@ -375,6 +424,63 @@ class _ProfileInfoRow extends StatelessWidget {
             color: Colors.grey[600],
             fontWeight: FontWeight.w500,
           ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.grey[100],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 16, color: Colors.black87),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileInfoRowWithEdit extends StatelessWidget {
+  const _ProfileInfoRowWithEdit({
+    required this.label,
+    required this.value,
+    required this.onEdit,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Chỉnh sửa'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Container(

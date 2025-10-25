@@ -17,6 +17,7 @@ class ApiConstants {
   // User Endpoints
   static const String myInfo = '/users/myInfo';
   static String get myInfoUrl => '$baseApiUrl$myInfo';
+  static String get updateMyInfoUrl => '$baseApiUrl$myInfo';
 
   // Group Endpoints
   static const String groups = '/groups';
@@ -27,6 +28,10 @@ class ApiConstants {
 
   static String getGroupMembersUrl(int groupId) {
     return '$baseApiUrl$groups/$groupId/members';
+  }
+
+  static String getGroupLeaderUrl(int groupId) {
+    return '$baseApiUrl$groups/$groupId/leader';
   }
 
   static String getGroupsWithPagination({int page = 1, int size = 20}) {
@@ -41,9 +46,17 @@ class ApiConstants {
     return '$baseApiUrl$ideas/group/$groupId';
   }
 
+  static String getIdeaUrl(int ideaId) {
+    return '$baseApiUrl$ideas/$ideaId';
+  }
+
   static String getIdeasWithPagination({int page = 1, int size = 20}) {
     return '$baseApiUrl$ideas?page=$page&size=$size';
   }
+
+  // Major Endpoints
+  static const String majors = '/majors';
+  static String get majorsUrl => '$baseApiUrl$majors';
 
   // Headers
   static Map<String, String> get jsonHeaders => {
