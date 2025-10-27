@@ -1,10 +1,12 @@
 import 'package:booking_group_flutter/core/services/api_service.dart';
+import 'package:booking_group_flutter/features/forum/presentation/pages/forum_page.dart';
 import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/error_state_widget.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/groups_your_group_section.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/home_header.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/information_access_section.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/loading_widget.dart';
+import 'package:booking_group_flutter/features/ideas/presentation/pages/all_ideas_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/my_group_detail_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -162,12 +164,20 @@ class _HomePageState extends State<HomePage> {
                       // Section 2: Information Access
                       InformationAccessSection(
                         onForumTap: () {
-                          // TODO: Navigate to Forum page
-                          print('Navigate to Forum');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ForumPage(),
+                            ),
+                          );
                         },
                         onIdeaTap: () {
-                          // TODO: Navigate to Idea page
-                          print('Navigate to Idea');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AllIdeasPage(),
+                            ),
+                          );
                         },
                       ),
 
