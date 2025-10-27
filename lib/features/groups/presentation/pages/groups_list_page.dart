@@ -1,3 +1,4 @@
+import 'package:booking_group_flutter/features/groups/presentation/pages/group_detail_page.dart';
 import 'package:booking_group_flutter/features/groups/presentation/widgets/group_card.dart';
 import 'package:booking_group_flutter/features/groups/presentation/widgets/groups_filter_section.dart';
 import 'package:booking_group_flutter/models/group.dart';
@@ -201,12 +202,13 @@ class _GroupsListPageState extends State<GroupsListPage> {
                     return GroupCard(
                       group: group,
                       onTap: () {
-                        // TODO: Navigate to group detail
-                        print('Tapped on group: ${group.title}');
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Đã chọn: ${group.title}'),
-                            duration: const Duration(seconds: 1),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => GroupDetailPage(
+                              groupId: group.id,
+                              groupTitle: group.title,
+                            ),
                           ),
                         );
                       },

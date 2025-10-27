@@ -6,8 +6,11 @@ import 'package:booking_group_flutter/features/home/presentation/widgets/groups_
 import 'package:booking_group_flutter/features/home/presentation/widgets/home_header.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/information_access_section.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/loading_widget.dart';
+import 'package:booking_group_flutter/features/home/presentation/widgets/your_request_section_card.dart';
 import 'package:booking_group_flutter/features/ideas/presentation/pages/all_ideas_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/my_group_detail_page.dart';
+import 'package:booking_group_flutter/features/requests/presentation/pages/your_requests_page.dart';
+import 'package:booking_group_flutter/resources/join_request_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -21,11 +24,13 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final ApiService _apiService = ApiService();
+  final JoinRequestApi _joinRequestApi = JoinRequestApi();
 
   // State variables
   bool _isLoading = true;
   String? _error;
   String? _userEmail;
+  int _requestCount = 0;
 
   @override
   void initState() {
@@ -46,6 +51,9 @@ class _HomePageState extends State<HomePage> {
       if (user != null) {
         _userEmail = user.email;
       }
+
+      // Load join requests count
+      await _loadRequestCount();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -54,6 +62,24 @@ class _HomePageState extends State<HomePage> {
     } finally {
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  /// Load join requests count
+  Future<void> _loadRequestCount() async {
+    try {
+      final requests = await _joinRequestApi.getMyJoinRequests();
+      setState(() {
+        // Count only pending requests
+        _requestCount = requests
+            .where((r) => r.status.toUpperCase() == 'PENDING')
+            .length;
+      });
+    } catch (e) {
+      print('❌ Error loading requests: $e');
+      setState(() {
+        _requestCount = 0;
       });
     }
   }
@@ -157,6 +183,26 @@ class _HomePageState extends State<HomePage> {
                             ),
                           );
                         },
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Section 1.5: Your Request Card (below Groups section)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: YourRequestSectionCard(
+                          requestCount: _requestCount,
+                          onTap: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const YourRequestsPage(),
+                              ),
+                            );
+                            // Reload count after returning
+                            _loadRequestCount();
+                          },
+                        ),
                       ),
 
                       const SizedBox(height: 32),

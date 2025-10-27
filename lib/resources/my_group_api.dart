@@ -35,15 +35,27 @@ class MyGroupApi {
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body) as Map<String, dynamic>;
+        print('📦 Response data: ${jsonResponse['data']}'); // Debug log
 
         if (jsonResponse['status'] == 200 && jsonResponse['data'] != null) {
-          final myGroup = MyGroup.fromJson(jsonResponse['data']);
-          print('✅ My group loaded: ${myGroup.title}');
-          return myGroup;
+          try {
+            final myGroup = MyGroup.fromJson(jsonResponse['data']);
+            print('✅ My group loaded: ${myGroup.title}');
+            return myGroup;
+          } catch (e) {
+            print('❌ Error parsing MyGroup: $e');
+            print('📦 Raw data: ${jsonResponse['data']}');
+            rethrow;
+          }
         }
       } else if (response.statusCode == 404) {
         print('⚠️ User is not in any group');
         return null;
+      } else if (response.statusCode == 500) {
+        // Backend might be having issues or user relationship not ready
+        print('❌ Server error 500 - Backend might be processing the request');
+        print('📦 Response body: ${response.body}');
+        throw Exception('Server error - Please try again in a moment');
       } else {
         print('❌ Error: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to load my group: ${response.statusCode}');

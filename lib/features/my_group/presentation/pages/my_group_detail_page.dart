@@ -1,3 +1,4 @@
+import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/group_ideas_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_info_card.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/members_section.dart';
@@ -29,7 +30,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     _loadGroupData();
   }
 
-  Future<void> _loadGroupData() async {
+  Future<void> _loadGroupData({int retryCount = 0}) async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -51,6 +52,15 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
         });
       }
     } catch (e) {
+      // Retry once if it's a 500 error and we haven't retried yet
+      if (e.toString().contains('500') && retryCount < 2) {
+        print(
+          '⚠️ Got 500 error, retrying in 2 seconds... (attempt ${retryCount + 1}/2)',
+        );
+        await Future.delayed(const Duration(seconds: 2));
+        return _loadGroupData(retryCount: retryCount + 1);
+      }
+
       setState(() {
         _error = e.toString();
       });
@@ -103,7 +113,14 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const GroupsListPage(),
+                  ),
+                );
+              },
               icon: const Icon(Icons.group_add),
               label: const Text('Xem danh sách nhóm'),
               style: ElevatedButton.styleFrom(

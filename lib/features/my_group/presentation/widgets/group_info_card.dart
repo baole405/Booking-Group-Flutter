@@ -101,7 +101,11 @@ class GroupInfoCard extends StatelessWidget {
             const Divider(height: 32),
 
             // Info rows
-            _buildInfoRow(Icons.school_outlined, 'Học kỳ', group.semester.name),
+            _buildInfoRow(
+              Icons.school_outlined,
+              'Học kỳ',
+              group.semester?.name ?? 'Chưa có học kỳ',
+            ),
             const SizedBox(height: 12),
             _buildInfoRow(
               Icons.category_outlined,
