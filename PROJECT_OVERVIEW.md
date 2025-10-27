@@ -11,18 +11,21 @@
 **🚫 DO NOT MODIFY BACKEND CODE OR API ENDPOINTS**
 
 This documentation is for **MOBILE DEVELOPMENT ONLY**. You are working with:
+
 - ✅ Flutter/Dart code in the mobile app
 - ✅ UI/UX components and widgets
 - ✅ State management and navigation
 - ✅ API integration (client-side only)
 
 **You are NOT allowed to:**
+
 - ❌ Modify backend API endpoints
 - ❌ Change API response structures
 - ❌ Suggest backend changes
 - ❌ Modify server-side logic
 
 **You CAN:**
+
 - ✅ View API documentation to understand responses
 - ✅ Handle API responses safely with null checks
 - ✅ Add error handling for API calls
@@ -33,6 +36,7 @@ This documentation is for **MOBILE DEVELOPMENT ONLY**. You are working with:
 ## 🏗️ Architecture
 
 ### Tech Stack
+
 - **Framework:** Flutter 3.35.4
 - **Language:** Dart
 - **Authentication:** Firebase Auth (Email-based)
@@ -41,6 +45,7 @@ This documentation is for **MOBILE DEVELOPMENT ONLY**. You are working with:
 - **Local Storage:** SharedPreferences (Bearer token)
 
 ### Backend API
+
 - **Base URL:** `https://swd392-exe-team-management-be.onrender.com`
 - **Authentication:** Bearer Token (stored in SharedPreferences)
 - **Response Format:** JSON with structure `{status: number, message: string, data: object}`
@@ -111,6 +116,7 @@ lib/
 ## 🔐 Authentication Flow
 
 ### Login Process
+
 1. User enters email and password
 2. Firebase Auth validates credentials
 3. On success, retrieve Firebase ID token
@@ -120,6 +126,7 @@ lib/
 7. Navigate to HomePage
 
 ### Signup Process
+
 1. User enters email, password, full name, student code, major
 2. Firebase Auth creates account
 3. Call backend `/api/auth/register` with user data
@@ -131,18 +138,21 @@ lib/
 ## 🎭 User Roles & Permissions
 
 ### Group Leader
+
 - ✅ Create new ideas for the group
 - ✅ Edit existing ideas
 - ✅ Delete ideas
 - ✅ Manage group members (if features exist)
 
 ### Group Member
+
 - ✅ View group information
 - ✅ View group ideas (read-only)
 - ✅ View other members
 - ❌ Cannot edit or delete ideas
 
 ### Non-Member
+
 - ✅ Browse all public groups
 - ✅ Join FORMING groups (become leader)
 - ✅ Request to join ACTIVE groups
@@ -153,6 +163,7 @@ lib/
 ## 📊 Group Status Lifecycle
 
 ### Status Flow
+
 ```
 FORMING → ACTIVE → COMPLETED / DISBANDED
 ```
@@ -160,18 +171,21 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 ### Status Descriptions
 
 1. **FORMING** (Đang tạo)
+
    - Group has no leader yet
    - First person to join becomes the leader
    - Group automatically changes to ACTIVE when someone joins
    - **Join Button:** "Tham gia nhóm" → Shows confirmation dialog
 
 2. **ACTIVE** (Hoạt động)
+
    - Group has a leader
    - Members can be added
    - **Join Button:** "Tham gia nhóm" → Sends join request
    - Leader can manage ideas
 
 3. **COMPLETED** (Hoàn thành)
+
    - Group has finished its project
    - Read-only mode
 
@@ -186,11 +200,13 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 ### 1. Home Page (`/features/home/`)
 
 **What User Sees:**
+
 - **Groups Section Card:** Browse all available groups
 - **Your Group Section Card:** Quick access to user's current group (if any)
 - **Your Request Section Card:** Manage join requests with badge count
 
 **User Actions:**
+
 - Tap "Groups" → Navigate to Groups List
 - Tap "Your Group" → Navigate to My Group Detail (if in a group)
 - Tap "Your Request" → Navigate to Your Requests Page
@@ -202,11 +218,13 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 **Page:** `groups_list_page.dart`
 
 **What User Sees:**
+
 - List of all groups from API
 - Each card shows: Title, Status badge, Description, Semester, Type, Created date, Member count
 - Search functionality (if implemented)
 
 **User Actions:**
+
 - Tap on any group card → Navigate to Group Detail Page
 
 ---
@@ -216,11 +234,13 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 **Page:** `group_detail_page.dart`
 
 **Components:**
+
 - `GroupDetailInfoCard` - Group information
 - `GroupDetailLeaderSection` - Leader info with join button (for FORMING groups)
 - `GroupDetailMembersSection` - List of members
 
 **User Flow for FORMING Groups:**
+
 1. User views group with status "FORMING"
 2. Sees "Nhóm chưa có trưởng nhóm" in leader section
 3. Clicks "Tham gia nhóm" button
@@ -234,6 +254,7 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
    - Navigate to My Group Detail Page
 
 **User Flow for ACTIVE Groups:**
+
 1. User views group with status "ACTIVE"
 2. Sees current leader information
 3. Clicks "Tham gia nhóm" button (FloatingActionButton)
@@ -247,21 +268,25 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 **Page:** `my_group_detail_page.dart`
 
 **What User Sees:**
+
 - `GroupInfoCard` - Group details with status badge
 - `LeaderSection` - Leader information with purple "Leader" badge
 - `MembersSection` - All group members (leader has badge)
 - `IdeasSection` - Group ideas list
 
 **Leader-Specific Features:**
+
 - ➕ "Thêm ý tưởng" button (floating action)
 - ✏️ Edit button on each idea card
 - 🗑️ Delete button on each idea card
 
 **Member View:**
+
 - 👀 Read-only view of ideas
 - No edit/delete buttons
 
 **Empty States:**
+
 - "Bạn chưa tham gia nhóm nào" → Shows button to browse groups
 - "Chưa có ý tưởng nào" → Leader can add ideas
 
@@ -274,13 +299,15 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 **Purpose:** Manage ideas for user's group
 
 **Features:**
+
 - View all ideas in user's group
-- **Leader only:** 
+- **Leader only:**
   - Create new idea dialog
   - Edit idea dialog
   - Delete idea with confirmation
 
 **Idea Card Structure:**
+
 - Title
 - Description
 - Tags (if any)
@@ -296,6 +323,7 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 **Purpose:** Browse all ideas from all groups (Admin/Teacher feature)
 
 **What User Sees:**
+
 - Ideas from all groups
 - Group name for each idea
 - Read-only view
@@ -309,6 +337,7 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 **Purpose:** Community discussion board
 
 **What User Sees:**
+
 - List of all forum posts
 - Post cards with: Title, Content, Author, Date
 - Public discussion space
@@ -324,15 +353,18 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 **Purpose:** Manage user's join requests
 
 **What User Sees:**
+
 - List of pending join requests
 - Request cards showing: Group name, Request date, Status
 - Badge count on home page card
 
 **User Actions:**
+
 - View request details
 - Cancel request (DELETE request)
 
 **Empty State:**
+
 - "Chưa có yêu cầu nào" → Shows button to browse groups
 
 ---
@@ -342,12 +374,14 @@ FORMING → ACTIVE → COMPLETED / DISBANDED
 ### Key API Endpoints (READ-ONLY REFERENCE)
 
 #### Authentication
+
 ```
 POST /api/auth/register
 POST /api/auth/login
 ```
 
 #### Groups
+
 ```
 GET  /api/groups                    # List all groups
 GET  /api/groups/{id}               # Get group by ID
@@ -357,6 +391,7 @@ GET  /api/groups/{id}/leader        # Get group leader (404 if no leader)
 ```
 
 #### Ideas
+
 ```
 GET    /api/groups/{id}/ideas       # Get group ideas
 POST   /api/ideas                   # Create idea (Leader only)
@@ -366,6 +401,7 @@ GET    /api/ideas                   # Get all ideas (Admin/Teacher)
 ```
 
 #### Join Requests
+
 ```
 POST   /api/joins/{groupId}         # Join group or send request
 GET    /api/joins/my-requests       # Get user's requests
@@ -374,6 +410,7 @@ GET    /api/joins/{groupId}/pending # Get pending requests for group
 ```
 
 #### Forum
+
 ```
 GET /api/posts                      # Get all forum posts
 ```
@@ -383,6 +420,7 @@ GET /api/posts                      # Get all forum posts
 ## 🎨 UI/UX Patterns
 
 ### Color Scheme
+
 - **Primary:** Purple (`Color(0xFF8B5CF6)`)
 - **Success:** Green
 - **Warning:** Orange
@@ -390,16 +428,19 @@ GET /api/posts                      # Get all forum posts
 - **Info:** Blue
 
 ### Status Colors
+
 - **FORMING:** Orange
 - **ACTIVE:** Green
 - **COMPLETED:** Blue
 - **DISBANDED:** Red
 
 ### Type Colors
+
 - **PUBLIC:** Blue
 - **PRIVATE:** Purple
 
 ### Common Widgets
+
 - **Card with gradient background** - Used for section cards on home
 - **Status badges** - Rounded containers with colored background
 - **Leader badge** - Purple container with white "Leader" text
@@ -410,11 +451,13 @@ GET /api/posts                      # Get all forum posts
 ## 🔄 State Management
 
 ### Pattern Used
+
 - StatefulWidget with setState
 - Local state management per page
 - API calls in initState or button handlers
 
 ### Loading States
+
 ```dart
 bool _isLoading = true;
 String? _error;
@@ -447,14 +490,16 @@ try {
 ### API Error Patterns
 
 1. **Null Safety:**
+
    ```dart
    final title = (json['title'] as String?) ?? '';
-   final semester = json['semester'] != null 
-       ? Semester.fromJson(json['semester']) 
+   final semester = json['semester'] != null
+       ? Semester.fromJson(json['semester'])
        : null;
    ```
 
 2. **Type Safety:**
+
    ```dart
    String getStringValue(dynamic value, [String defaultValue = '']) {
      if (value == null) return defaultValue;
@@ -484,9 +529,11 @@ try {
 ## 🐛 Common Issues & Solutions
 
 ### Issue 1: Type Cast Error
+
 **Problem:** `type '_Map<String, dynamic>' is not a subtype of type 'String'`
 
 **Solution:** Use safe type checking helper functions
+
 ```dart
 String getStringValue(dynamic value, [String defaultValue = '']) {
   if (value == null) return defaultValue;
@@ -497,9 +544,11 @@ String getStringValue(dynamic value, [String defaultValue = '']) {
 ```
 
 ### Issue 2: Backend 500 Error After Join
+
 **Problem:** Backend returns 500 when calling my-group API immediately after joining
 
 **Solution:** Smart retry logic with delays
+
 ```dart
 // Wait and retry up to 5 times
 bool groupReady = false;
@@ -520,17 +569,19 @@ while (!groupReady && retries < maxRetries) {
 ```
 
 ### Issue 3: Nullable Fields
+
 **Problem:** Backend may return null for optional fields
 
 **Solution:** Always use nullable types and default values
+
 ```dart
 class MyGroup {
   final Semester? semester;  // Nullable
-  
+
   factory MyGroup.fromJson(Map<String, dynamic> json) {
     return MyGroup(
-      semester: json['semester'] != null 
-          ? Semester.fromJson(json['semester']) 
+      semester: json['semester'] != null
+          ? Semester.fromJson(json['semester'])
           : null,
     );
   }
@@ -542,6 +593,7 @@ class MyGroup {
 ## 📝 Code Guidelines
 
 ### 1. Always Handle Nulls
+
 ```dart
 // ✅ Good
 final name = groupDetail['name'] as String? ?? 'N/A';
@@ -551,6 +603,7 @@ final name = groupDetail['name'] as String;  // May crash
 ```
 
 ### 2. Use Mounted Check
+
 ```dart
 // ✅ Good
 if (mounted) {
@@ -562,6 +615,7 @@ setState(() { /* ... */ });  // May crash if widget disposed
 ```
 
 ### 3. Add Loading & Error States
+
 ```dart
 // ✅ Always include
 if (_isLoading) {
@@ -574,6 +628,7 @@ if (_error != null) {
 ```
 
 ### 4. Use Const Constructors
+
 ```dart
 // ✅ Good
 const SizedBox(height: 16)
@@ -589,21 +644,25 @@ SizedBox(height: 16)
 ### Adding a New Feature
 
 1. **Create Model** (if needed)
+
    - Add to `lib/models/`
    - Include `fromJson` and `toJson` methods
    - Handle nullable fields
 
 2. **Create API Service** (if needed)
+
    - Add to `lib/resources/`
    - Use bearer token from SharedPreferences
    - Add error handling
 
 3. **Create Page**
+
    - Add to appropriate feature folder
    - Include loading/error states
    - Use mounted checks
 
 4. **Create Widgets**
+
    - Add to feature's widgets folder
    - Make reusable components
    - Use const constructors
@@ -618,17 +677,20 @@ SizedBox(height: 16)
 ## 🔍 Debugging Tips
 
 ### View API Responses
+
 ```dart
 print('📊 Response: ${response.statusCode}');
 print('📦 Data: ${jsonResponse['data']}');
 ```
 
 ### Check Data Types
+
 ```dart
 print('Type: ${value.runtimeType}');
 ```
 
 ### Track Navigation
+
 ```dart
 print('🔀 Navigating to: MyGroupDetailPage');
 ```
@@ -653,11 +715,13 @@ dependencies:
 ## 🎓 Learning Resources
 
 ### Flutter Docs
+
 - [Flutter Widget Catalog](https://docs.flutter.dev/ui/widgets)
 - [State Management](https://docs.flutter.dev/data-and-backend/state-mgmt)
 - [Navigation](https://docs.flutter.dev/ui/navigation)
 
 ### Best Practices
+
 - Always use `const` for immutable widgets
 - Handle all error cases
 - Add loading indicators for async operations
@@ -669,6 +733,7 @@ dependencies:
 ## 📞 Support
 
 For mobile development questions:
+
 - Check this documentation first
 - Review existing similar features
 - Look at API service implementations
