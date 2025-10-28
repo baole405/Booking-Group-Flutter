@@ -24,8 +24,6 @@ class ForumCommentProfileSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = comment.userResponse;
-    final avatarUrl = user.avatarUrl;
-    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
     return SafeArea(
       child: Padding(
@@ -43,9 +41,10 @@ class ForumCommentProfileSheet extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundImage:
-                          hasAvatar ? NetworkImage(avatarUrl) : null,
-                      child: !hasAvatar
+                      backgroundImage: user.avatarUrl != null
+                          ? NetworkImage(user.avatarUrl!)
+                          : null,
+                      child: user.avatarUrl == null
                           ? Text(
                               user.fullName.isNotEmpty
                                   ? user.fullName.substring(0, 1).toUpperCase()

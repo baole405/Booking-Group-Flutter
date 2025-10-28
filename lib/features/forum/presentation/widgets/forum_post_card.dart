@@ -48,8 +48,6 @@ class ForumPostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = _typeColor(post.type);
-    final avatarUrl = post.userResponse.avatarUrl;
-    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
     return Card(
       elevation: 2,
@@ -63,9 +61,10 @@ class ForumPostCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundImage:
-                      hasAvatar ? NetworkImage(avatarUrl) : null,
-                  child: !hasAvatar
+                  backgroundImage: post.userResponse.avatarUrl != null
+                      ? NetworkImage(post.userResponse.avatarUrl!)
+                      : null,
+                  child: post.userResponse.avatarUrl == null
                       ? Text(
                           post.userResponse.fullName.isNotEmpty
                               ? post.userResponse.fullName

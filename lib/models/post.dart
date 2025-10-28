@@ -61,8 +61,8 @@ class UserResponse {
       studentCode: json['studentCode'] ?? '',
       fullName: json['fullName'] ?? '',
       email: json['email'] ?? '',
-      prefix: _stringOrNull(json['prefix']),
-      avatarUrl: _extractAvatarUrl(json['avatarUrl']),
+      prefix: json['prefix'],
+      avatarUrl: json['avatarUrl'],
       major: _extractMajor(json['major']),
       role: json['role'] ?? 'STUDENT',
       isActive: json['isActive'] ?? true,
@@ -85,40 +85,6 @@ class UserResponse {
       }
     }
 
-    return null;
-  }
-
-  static String? _extractAvatarUrl(dynamic avatar) {
-    if (avatar == null) {
-      return null;
-    }
-
-    if (avatar is String && avatar.isNotEmpty) {
-      return avatar;
-    }
-
-    if (avatar is Map<String, dynamic>) {
-      final candidates = [
-        avatar['url'],
-        avatar['signedUrl'],
-        avatar['path'],
-        avatar['value'],
-      ];
-
-      for (final candidate in candidates) {
-        if (candidate is String && candidate.isNotEmpty) {
-          return candidate;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  static String? _stringOrNull(dynamic value) {
-    if (value is String && value.isNotEmpty) {
-      return value;
-    }
     return null;
   }
 }
