@@ -17,6 +17,9 @@ class GroupDetailLeaderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isFormingGroup = groupStatus.toUpperCase() == 'FORMING';
+    final leaderAvatar = _extractAvatarUrl(leader?['avatarUrl']);
+    final leaderMajor = _extractMajorName(leader?['major']);
+    final hasAvatar = leaderAvatar != null && leaderAvatar.isNotEmpty;
 
     return Card(
       elevation: 3,
@@ -82,10 +85,9 @@ class GroupDetailLeaderSection extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundImage: leader!['avatarUrl'] != null
-                        ? NetworkImage(leader!['avatarUrl'])
-                        : null,
-                    child: leader!['avatarUrl'] == null
+                    backgroundImage:
+                        hasAvatar ? NetworkImage(leaderAvatar) : null,
+                    child: !hasAvatar
                         ? Text(
                             (leader!['fullName'] ?? '?')
                                 .substring(0, 1)
@@ -117,10 +119,10 @@ class GroupDetailLeaderSection extends StatelessWidget {
                             color: Colors.grey.shade600,
                           ),
                         ),
-                        if (leader!['major'] != null) ...[
+                        if (leaderMajor != null && leaderMajor.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            leader!['major'],
+                            leaderMajor,
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade600,
@@ -137,4 +139,50 @@ class GroupDetailLeaderSection extends StatelessWidget {
       ),
     );
   }
+}
+
+String? _extractAvatarUrl(dynamic avatar) {
+  if (avatar == null) {
+    return null;
+  }
+
+  if (avatar is String && avatar.isNotEmpty) {
+    return avatar;
+  }
+
+  if (avatar is Map<String, dynamic>) {
+    final candidates = [
+      avatar['url'],
+      avatar['signedUrl'],
+      avatar['path'],
+      avatar['value'],
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate is String && candidate.isNotEmpty) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
+}
+
+String? _extractMajorName(dynamic major) {
+  if (major == null) {
+    return null;
+  }
+
+  if (major is String && major.isNotEmpty) {
+    return major;
+  }
+
+  if (major is Map<String, dynamic>) {
+    final name = major['name'];
+    if (name is String && name.isNotEmpty) {
+      return name;
+    }
+  }
+
+  return null;
 }

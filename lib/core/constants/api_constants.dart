@@ -1,3 +1,5 @@
+import 'package:booking_group_flutter/models/invite.dart';
+
 /// API Constants - Centralized configuration for all API endpoints
 class ApiConstants {
   // Base URL
@@ -25,6 +27,56 @@ class ApiConstants {
 
   static const String myGroup = '/groups/my-group';
   static String get myGroupUrl => '$baseApiUrl$myGroup';
+
+  static const String updateGroup = '/groups/update';
+  static String get updateGroupUrl => '$baseApiUrl$updateGroup';
+
+  static const String changeGroupType = '/groups/change-type';
+  static String get changeGroupTypeUrl => '$baseApiUrl$changeGroupType';
+
+  static const String completeGroup = '/groups/done';
+  static String get completeGroupUrl => '$baseApiUrl$completeGroup';
+
+  // Invite Endpoints
+  static const String invites = '/invites';
+  static String get invitesUrl => '$baseApiUrl$invites';
+
+  static String getMyInvitesUrl({
+    InviteStatus? status,
+    int receivedPage = 1,
+    int receivedSize = 10,
+    int sentPage = 1,
+    int sentSize = 10,
+  }) {
+    final queryParameters = <String, String>{
+      'receivedPage': '$receivedPage',
+      'receivedSize': '$receivedSize',
+      'sentPage': '$sentPage',
+      'sentSize': '$sentSize',
+    };
+
+    if (status != null) {
+      queryParameters['status'] = status.name.toUpperCase();
+    }
+
+    final query = queryParameters.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join('&');
+
+    return '$baseApiUrl$invites/my?$query';
+  }
+
+  static String updateInviteStatusUrl(int inviteId) {
+    return '$baseApiUrl$invites/$inviteId';
+  }
+
+  // Comment Endpoints
+  static const String comments = '/comments';
+  static String get commentsUrl => '$baseApiUrl$comments';
+
+  static String getPostCommentsUrl(int postId) {
+    return '$baseApiUrl$comments/post/$postId';
+  }
 
   static String getGroupMembersUrl(int groupId) {
     return '$baseApiUrl$groups/$groupId/members';

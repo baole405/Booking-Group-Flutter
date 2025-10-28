@@ -7,8 +7,14 @@ import 'member_card.dart';
 class MembersSection extends StatelessWidget {
   final List<GroupMember> members;
   final UserProfile? leader;
+  final String? currentUserEmail;
 
-  const MembersSection({super.key, required this.members, this.leader});
+  const MembersSection({
+    super.key,
+    required this.members,
+    this.leader,
+    this.currentUserEmail,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +58,15 @@ class MembersSection extends StatelessWidget {
                 separatorBuilder: (context, index) => const Divider(height: 24),
                 itemBuilder: (context, index) {
                   final member = members[index];
-                  return MemberCard(member: member, leader: leader);
+                  final isCurrentUser = currentUserEmail != null &&
+                      currentUserEmail!.toLowerCase() ==
+                          member.email.toLowerCase();
+
+                  return MemberCard(
+                    member: member,
+                    leader: leader,
+                    isCurrentUser: isCurrentUser,
+                  );
                 },
               ),
           ],
