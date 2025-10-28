@@ -1,7 +1,9 @@
+import 'package:booking_group_flutter/features/forum/presentation/widgets/forum_comments_bottom_sheet.dart';
+import 'package:booking_group_flutter/features/forum/presentation/widgets/forum_post_card.dart';
+import 'package:booking_group_flutter/features/groups/presentation/pages/group_detail_page.dart';
 import 'package:booking_group_flutter/models/post.dart';
 import 'package:booking_group_flutter/resources/forum_api.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class ForumPage extends StatefulWidget {
   const ForumPage({super.key});
@@ -42,37 +44,6 @@ class _ForumPageState extends State<ForumPage> {
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy HH:mm').format(date);
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
-  Color _getTypeColor(String type) {
-    switch (type.toUpperCase()) {
-      case 'FIND_GROUP':
-        return Colors.blue;
-      case 'FIND_MEMBER':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getTypeLabel(String type) {
-    switch (type.toUpperCase()) {
-      case 'FIND_GROUP':
-        return 'Tìm nhóm';
-      case 'FIND_MEMBER':
-        return 'Tìm thành viên';
-      default:
-        return type;
     }
   }
 
@@ -129,127 +100,45 @@ class _ForumPageState extends State<ForumPage> {
                     const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final post = _posts[index];
-                  return Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header: User info and type badge
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundImage:
-                                    post.userResponse.avatarUrl != null
-                                    ? NetworkImage(post.userResponse.avatarUrl!)
-                                    : null,
-                                child: post.userResponse.avatarUrl == null
-                                    ? Text(
-                                        post.userResponse.fullName.isNotEmpty
-                                            ? post.userResponse.fullName
-                                                  .substring(0, 1)
-                                                  .toUpperCase()
-                                            : '?',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      post.userResponse.fullName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    Text(
-                                      _formatDate(post.createdAt),
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getTypeColor(
-                                    post.type,
-                                  ).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  _getTypeLabel(post.type),
-                                  style: TextStyle(
-                                    color: _getTypeColor(post.type),
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // Content
-                          Text(
-                            post.content,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-
-                          // Group info (if exists)
-                          if (post.groupResponse != null) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.group,
-                                    color: Colors.grey.shade600,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      post.groupResponse!.title,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade800,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                  return ForumPostCard(
+                    post: post,
+                    onViewGroup: post.groupResponse != null
+                        ? () => _openGroupDetail(post)
+                        : null,
+                    onOpenComments: () => _openComments(post),
                   );
                 },
               ),
             ),
+    );
+  }
+
+  void _openGroupDetail(Post post) {
+    final group = post.groupResponse;
+    if (group == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => GroupDetailPage(
+          groupId: group.id,
+          groupTitle: group.title,
+        ),
+      ),
+    );
+  }
+
+  void _openComments(Post post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => ForumCommentsBottomSheet(
+        post: post,
+        parentContext: context,
+      ),
     );
   }
 }
