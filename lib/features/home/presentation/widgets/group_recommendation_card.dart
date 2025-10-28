@@ -1,44 +1,57 @@
-import 'package:booking_group_flutter/app/theme/app_theme.dart';
-import 'package:booking_group_flutter/models/group.dart';
+import 'package:booking_group_flutter/features/groups/domain/group_models.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class GroupRecommendationCard extends StatelessWidget {
   const GroupRecommendationCard({
     super.key,
     required this.group,
+    required this.onViewTap,
     this.onJoinTap,
+    this.isJoining = false,
+    this.isMember = false,
+    this.hasGroup = false,
   });
 
-  final Group group;
+  final GroupSummary group;
+  final VoidCallback onViewTap;
   final VoidCallback? onJoinTap;
+  final bool isJoining;
+  final bool isMember;
+  final bool hasGroup;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final subtitleParts = <String>[];
-    final semesterName = group.semester?.name ?? '';
-    if (semesterName.isNotEmpty) {
-      subtitleParts.add(semesterName);
+    if (group.type?.isNotEmpty == true) {
+      subtitleParts.add(group.type!);
     }
-    if (group.type.isNotEmpty) {
-      subtitleParts.add(group.type);
+    if (group.status?.isNotEmpty == true) {
+      subtitleParts.add(group.status!);
     }
     final subtitleText = subtitleParts.join(' • ');
 
-    final createdLabel = group.createdAt != null
-        ? DateFormat.yMMMd().format(group.createdAt!.toLocal())
-        : null;
-
     final chipLabels = <String>[];
-    final status = group.status.replaceAll('_', ' ').toLowerCase();
-    if (status.isNotEmpty) {
-      chipLabels.add(
-        status.split(' ').map(_capitalize).join(' '),
-      );
+    if (group.majorNames.isNotEmpty) {
+      chipLabels.addAll(group.majorNames);
     }
-    if (createdLabel != null) {
-      chipLabels.add('Created $createdLabel');
+    if (group.memberCount != null) {
+      chipLabels.add('${group.memberCount} members');
+    }
+
+    final statusLabel = (group.status ?? '').replaceAll('_', ' ').trim();
+    if (statusLabel.isNotEmpty && !chipLabels.contains(statusLabel)) {
+      chipLabels.insert(0, statusLabel.split(' ').map(_capitalize).join(' '));
+    }
+
+    final isJoinDisabled = isMember || hasGroup || onJoinTap == null;
+    String joinLabel;
+    if (isMember) {
+      joinLabel = 'Joined';
+    } else if (hasGroup) {
+      joinLabel = 'Join unavailable';
+    } else {
+      joinLabel = 'Join group';
     }
 
     return Container(
@@ -58,25 +71,16 @@ class GroupRecommendationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  group.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+          GestureDetector(
+            onTap: onViewTap,
+            child: Text(
+              group.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.favorite_border,
-                color: Colors.grey.shade500,
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 12),
           Text(
@@ -126,21 +130,22 @@ class GroupRecommendationCard extends StatelessWidget {
             ),
           ],
           const Spacer(),
-          Align(
-            alignment: Alignment.bottomRight,
-            child: ElevatedButton(
-              onPressed: onJoinTap,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryDark,
-                foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: const Text('View details'),
-            ),
+          FilledButton(
+            onPressed: isJoinDisabled || isJoining ? null : onJoinTap,
+            child: isJoining
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(joinLabel),
+          ),
+          TextButton(
+            onPressed: onViewTap,
+            child: const Text('View details'),
           ),
         ],
       ),

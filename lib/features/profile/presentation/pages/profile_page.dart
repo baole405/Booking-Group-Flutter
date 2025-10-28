@@ -1,51 +1,12 @@
 import 'package:booking_group_flutter/app/theme/app_theme.dart';
+import 'package:booking_group_flutter/features/auth/application/session_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-class ProfilePage extends StatefulWidget {
+class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key, this.onBack});
 
   final VoidCallback? onBack;
-
-  @override
-  State<ProfilePage> createState() => _ProfilePageState();
-}
-
-class _ProfilePageState extends State<ProfilePage> {
-  final TextEditingController _firstNameController =
-      TextEditingController(text: 'Benjamin');
-  final TextEditingController _lastNameController =
-      TextEditingController(text: 'Jack');
-  final TextEditingController _emailController =
-      TextEditingController(text: 'gmail@gmail.com');
-  final TextEditingController _phoneController =
-      TextEditingController(text: '+100******00');
-
-  bool _isEditing = false;
-
-  @override
-  void dispose() {
-    _firstNameController.dispose();
-    _lastNameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
-    super.dispose();
-  }
-
-  void _toggleEditing() {
-    setState(() {
-      _isEditing = !_isEditing;
-    });
-  }
-
-  void _saveChanges() {
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _isEditing = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully')),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,162 +16,176 @@ class _ProfilePageState extends State<ProfilePage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new),
           onPressed: () {
-            if (widget.onBack != null) {
-              widget.onBack!();
+            if (onBack != null) {
+              onBack!();
             } else {
               Navigator.of(context).maybePop();
             }
           },
         ),
-        title: const Text('Edit Profile'),
+        title: const Text('My Profile'),
         actions: [
-          TextButton(
-            onPressed: _toggleEditing,
-            child: Text(
-              _isEditing ? 'Cancel' : 'Edit',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          IconButton(
+            onPressed: () => context.read<SessionController>().reloadProfile(),
+            icon: const Icon(Icons.refresh),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            _Avatar(isEditing: _isEditing),
-            const SizedBox(height: 16),
-            Text(
-              '${_firstNameController.text} ${_lastNameController.text}',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+      body: Consumer<SessionController>(
+        builder: (context, session, _) {
+          final profile = session.currentUser;
+          if (session.status == SessionStatus.loading && profile == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (profile == null) {
+            return _EmptyProfile(onRetry: () => session.reloadProfile());
+          }
+          return SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: CircleAvatar(
+                    radius: 48,
+                    backgroundColor: Colors.grey.shade200,
+                    child: Text(
+                      profile.fullName?.isNotEmpty == true
+                          ? profile.fullName![0].toUpperCase()
+                          : profile.email[0].toUpperCase(),
+                      style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    ),
                   ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    profile.fullName ?? profile.email,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                _ProfileTile(
+                  label: 'Email',
+                  value: profile.email,
+                  icon: Icons.email_outlined,
+                ),
+                const SizedBox(height: 16),
+                _ProfileTile(
+                  label: 'Student code',
+                  value: profile.studentCode ?? 'Not provided',
+                  icon: Icons.badge_outlined,
+                ),
+                const SizedBox(height: 16),
+                _ProfileTile(
+                  label: 'Major',
+                  value: profile.majorName ?? 'Please update your major',
+                  icon: Icons.school_outlined,
+                ),
+                const SizedBox(height: 16),
+                _ProfileTile(
+                  label: 'Current group',
+                  value: profile.group?.title ?? 'Not in a group',
+                  icon: Icons.group_outlined,
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: () => context.read<SessionController>().signOut(),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Sign out'),
+                ),
+              ],
             ),
-            const SizedBox(height: 32),
-            _ProfileTextField(
-              label: 'First name',
-              controller: _firstNameController,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 16),
-            _ProfileTextField(
-              label: 'Last name',
-              controller: _lastNameController,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 16),
-            _ProfileTextField(
-              label: 'Email',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 16),
-            _ProfileTextField(
-              label: 'Phone number',
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              enabled: _isEditing,
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _isEditing ? _saveChanges : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryDark,
-                disabledBackgroundColor: Colors.grey.shade300,
-                disabledForegroundColor: Colors.grey.shade600,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              ),
-              child: const Text('Save Change'),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.isEditing});
+class _ProfileTile extends StatelessWidget {
+  const _ProfileTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
-  final bool isEditing;
+  final String label;
+  final String value;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        CircleAvatar(
-          radius: 48,
-          backgroundColor: Colors.grey.shade200,
-          child: Icon(
-            Icons.person,
-            size: 48,
-            color: Colors.grey.shade600,
-          ),
-        ),
-        Positioned(
-          bottom: 4,
-          right: 12,
-          child: Container(
-            height: 34,
-            width: 34,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppTheme.primaryDark,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppTheme.primaryDark),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context)
+                      .textTheme
+                      .labelMedium
+                      ?.copyWith(color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ],
             ),
-            child: Icon(
-              isEditing ? Icons.edit : Icons.lock,
-              color: Colors.white,
-              size: 18,
-            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _ProfileTextField extends StatelessWidget {
-  const _ProfileTextField({
-    required this.label,
-    required this.controller,
-    required this.enabled,
-    this.keyboardType,
-  });
+class _EmptyProfile extends StatelessWidget {
+  const _EmptyProfile({required this.onRetry});
 
-  final String label;
-  final TextEditingController controller;
-  final bool enabled;
-  final TextInputType? keyboardType;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context)
-              .textTheme
-              .bodySmall
-              ?.copyWith(color: Colors.grey.shade600),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.person_off, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              'We were unable to load your profile.',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          readOnly: !enabled,
-          keyboardType: keyboardType,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: enabled ? Colors.grey.shade100 : Colors.grey.shade200,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
