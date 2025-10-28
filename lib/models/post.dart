@@ -63,10 +63,29 @@ class UserResponse {
       email: json['email'] ?? '',
       prefix: json['prefix'],
       avatarUrl: json['avatarUrl'],
-      major: json['major'],
+      major: _extractMajor(json['major']),
       role: json['role'] ?? 'STUDENT',
       isActive: json['isActive'] ?? true,
     );
+  }
+
+  static String? _extractMajor(dynamic major) {
+    if (major == null) {
+      return null;
+    }
+
+    if (major is String) {
+      return major;
+    }
+
+    if (major is Map<String, dynamic>) {
+      final name = major['name'];
+      if (name is String && name.isNotEmpty) {
+        return name;
+      }
+    }
+
+    return null;
   }
 }
 
