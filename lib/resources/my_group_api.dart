@@ -224,6 +224,75 @@ class MyGroupApi {
     }
   }
 
+  Future<void> updateGroupInfo({
+    required int groupId,
+    required String title,
+    required String description,
+  }) async {
+    final token = await _getBearerToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
+    }
+
+    final response = await http.put(
+      Uri.parse(ApiConstants.updateGroupUrl),
+      headers: ApiConstants.authHeaders(token),
+      body: jsonEncode({
+        'groupId': groupId,
+        'title': title,
+        'description': description,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    }
+
+    final Map<String, dynamic> errorBody = jsonDecode(response.body);
+    final message = errorBody['message'] ?? 'Không thể cập nhật thông tin nhóm';
+    throw Exception(message);
+  }
+
+  Future<void> changeGroupType() async {
+    final token = await _getBearerToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
+    }
+
+    final response = await http.patch(
+      Uri.parse(ApiConstants.changeGroupTypeUrl),
+      headers: ApiConstants.authHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    }
+
+    final Map<String, dynamic> errorBody = jsonDecode(response.body);
+    final message = errorBody['message'] ?? 'Không thể thay đổi trạng thái nhóm';
+    throw Exception(message);
+  }
+
+  Future<void> completeGroup() async {
+    final token = await _getBearerToken();
+    if (token == null) {
+      throw Exception('No authentication token found');
+    }
+
+    final response = await http.patch(
+      Uri.parse(ApiConstants.completeGroupUrl),
+      headers: ApiConstants.authHeaders(token),
+    );
+
+    if (response.statusCode == 200) {
+      return;
+    }
+
+    final Map<String, dynamic> errorBody = jsonDecode(response.body);
+    final message = errorBody['message'] ?? 'Không thể hoàn tất nhóm';
+    throw Exception(message);
+  }
+
   /// Create a new idea (Leader only)
   Future<bool> createIdea({
     required String title,

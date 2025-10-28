@@ -5,11 +5,21 @@ import 'package:intl/intl.dart';
 class GroupInfoCard extends StatelessWidget {
   final MyGroup group;
   final int memberCount;
+  final bool showLeaderActions;
+  final bool actionsEnabled;
+  final VoidCallback? onEditInfo;
+  final VoidCallback? onToggleType;
+  final VoidCallback? onCompleteGroup;
 
   const GroupInfoCard({
     super.key,
     required this.group,
     required this.memberCount,
+    this.showLeaderActions = false,
+    this.actionsEnabled = true,
+    this.onEditInfo,
+    this.onToggleType,
+    this.onCompleteGroup,
   });
 
   String _formatDate(String dateStr) {
@@ -87,6 +97,38 @@ class GroupInfoCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (showLeaderActions)
+                  PopupMenuButton<_GroupAction>(
+                    enabled: actionsEnabled,
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (action) {
+                      switch (action) {
+                        case _GroupAction.updateInfo:
+                          onEditInfo?.call();
+                          break;
+                        case _GroupAction.toggleType:
+                          onToggleType?.call();
+                          break;
+                        case _GroupAction.completeGroup:
+                          onCompleteGroup?.call();
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<_GroupAction>(
+                        value: _GroupAction.updateInfo,
+                        child: Text('Cập nhật thông tin'),
+                      ),
+                      PopupMenuItem<_GroupAction>(
+                        value: _GroupAction.toggleType,
+                        child: Text('Thay đổi trạng thái nhóm'),
+                      ),
+                      PopupMenuItem<_GroupAction>(
+                        value: _GroupAction.completeGroup,
+                        child: Text('Hoàn tất nhóm'),
+                      ),
+                    ],
+                  ),
               ],
             ),
 
@@ -159,3 +201,5 @@ class GroupInfoCard extends StatelessWidget {
     );
   }
 }
+
+enum _GroupAction { updateInfo, toggleType, completeGroup }
