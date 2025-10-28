@@ -180,25 +180,42 @@ class _LoginPageState extends State<LoginPage> {
                 ],
               ),
               const SizedBox(height: 15),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  await signInWithGoogle();
-                },
-                icon: Image.network(
-                  'https://developers.google.com/identity/images/g-logo.png',
-                  height: 20,
-                  width: 20,
-                ),
-                label: const Text(
-                  'Sign in with Google',
-                  style: TextStyle(fontSize: 16, color: Colors.black),
-                ),
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  side: BorderSide(color: Colors.grey.shade300, width: 2),
-                  minimumSize: const Size(double.infinity, 60),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+              SizedBox(
+                width: double.infinity,
+                height: 60,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await signInWithGoogle();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    side: BorderSide(color: Colors.grey.shade300, width: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: Image.network(
+                          'https://developers.google.com/identity/images/g-logo.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.account_circle, size: 24);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Sign in with Google',
+                        style: TextStyle(fontSize: 16, color: Colors.black),
+                      ),
+                    ],
                   ),
                 ),
               ),
