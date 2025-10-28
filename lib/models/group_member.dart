@@ -31,7 +31,7 @@ class GroupMember {
       fullName: json['fullName'] as String,
       email: json['email'] as String,
       cwu: json['cwu'] as String?,
-      avatarUrl: json['avatarUrl'] as String?,
+      avatarUrl: _extractAvatarUrl(json['avatarUrl']),
       major: json['major'] != null ? Major.fromJson(json['major']) : null,
       role: json['role'] as String,
       isActive: json['isActive'] as bool? ?? true,
@@ -54,4 +54,31 @@ class GroupMember {
 
   String get displayName => fullName;
   String get identifier => studentCode ?? email;
+}
+
+String? _extractAvatarUrl(dynamic avatar) {
+  if (avatar == null) {
+    return null;
+  }
+
+  if (avatar is String && avatar.isNotEmpty) {
+    return avatar;
+  }
+
+  if (avatar is Map<String, dynamic>) {
+    final candidates = [
+      avatar['url'],
+      avatar['signedUrl'],
+      avatar['path'],
+      avatar['value'],
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate is String && candidate.isNotEmpty) {
+        return candidate;
+      }
+    }
+  }
+
+  return null;
 }

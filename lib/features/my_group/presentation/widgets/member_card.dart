@@ -11,6 +11,8 @@ class MemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isLeader = leader?.email == member.email;
+    final avatarUrl = member.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
 
     return Row(
       children: [
@@ -18,10 +20,8 @@ class MemberCard extends StatelessWidget {
         CircleAvatar(
           radius: 24,
           backgroundColor: const Color(0xFF8B5CF6).withOpacity(0.1),
-          backgroundImage: member.avatarUrl != null
-              ? NetworkImage(member.avatarUrl!)
-              : null,
-          child: member.avatarUrl == null
+          backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+          child: !hasAvatar
               ? Text(
                   member.fullName[0].toUpperCase(),
                   style: const TextStyle(

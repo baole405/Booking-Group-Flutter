@@ -269,6 +269,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final displayName = _googleName ?? _userProfile?.fullName ?? 'Người dùng';
     final displayEmail = _googleEmail ?? _userProfile?.email ?? '';
     final displayAvatar = _googleAvatar ?? _userProfile?.avatarUrl;
+    final hasAvatar = displayAvatar != null && displayAvatar.isNotEmpty;
 
     return SingleChildScrollView(
       child: Column(
@@ -306,10 +307,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       CircleAvatar(
                         radius: 60,
                         backgroundColor: Colors.grey[200],
-                        backgroundImage: displayAvatar != null
-                            ? NetworkImage(displayAvatar)
-                            : null,
-                        child: displayAvatar == null
+                        backgroundImage:
+                            hasAvatar ? NetworkImage(displayAvatar) : null,
+                        child: !hasAvatar
                             ? Icon(
                                 Icons.person,
                                 size: 60,
