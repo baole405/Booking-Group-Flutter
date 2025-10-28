@@ -6,12 +6,14 @@ class ForumPostCard extends StatelessWidget {
   final Post post;
   final VoidCallback? onViewGroup;
   final VoidCallback? onOpenComments;
+  final VoidCallback? onPosterTap;
 
   const ForumPostCard({
     super.key,
     required this.post,
     this.onViewGroup,
     this.onOpenComments,
+    this.onPosterTap,
   });
 
   Color _typeColor(String type) {
@@ -48,6 +50,62 @@ class ForumPostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = _typeColor(post.type);
+    final user = post.userResponse;
+    final avatarUrl = user.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+
+    final displayName = user.displayName;
+    final headerContent = Row(
+      children: [
+        CircleAvatar(
+          radius: 20,
+          backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+          child: !hasAvatar
+              ? Text(
+                  user.avatarInitial,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                )
+              : null,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              Text(
+                _formatDate(post.createdAt),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: typeColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            _typeLabel(post.type),
+            style: TextStyle(
+              color: typeColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
 
     return Card(
       elevation: 2,
@@ -57,64 +115,17 @@ class ForumPostCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundImage: post.userResponse.avatarUrl != null
-                      ? NetworkImage(post.userResponse.avatarUrl!)
-                      : null,
-                  child: post.userResponse.avatarUrl == null
-                      ? Text(
-                          post.userResponse.fullName.isNotEmpty
-                              ? post.userResponse.fullName
-                                  .substring(0, 1)
-                                  .toUpperCase()
-                              : '?',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        )
-                      : null,
+            if (onPosterTap != null)
+              InkWell(
+                onTap: onPosterTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: headerContent,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        post.userResponse.fullName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        _formatDate(post.createdAt),
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: typeColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _typeLabel(post.type),
-                    style: TextStyle(
-                      color: typeColor,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              )
+            else
+              headerContent,
             const SizedBox(height: 12),
             Text(
               post.content,

@@ -19,13 +19,12 @@ class Comment {
 
   factory Comment.fromJson(Map<String, dynamic> json) {
     final postJson = json['post'] as Map<String, dynamic>?;
+    final userJson = (json['userResponse'] ?? json['user']) as Map<String, dynamic>?;
 
     return Comment(
       id: json['id'] as int? ?? 0,
       postId: json['postId'] as int? ?? postJson?['id'] as int? ?? 0,
-      userResponse: UserResponse.fromJson(
-        json['userResponse'] as Map<String, dynamic>? ?? {},
-      ),
+      userResponse: UserResponse.fromJson(userJson ?? {}),
       content: json['content'] as String? ?? '',
       createdAt: json['createdAt'] as String? ?? '',
       active: json['active'] as bool? ?? true,

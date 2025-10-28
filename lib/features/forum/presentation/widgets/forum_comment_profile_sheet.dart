@@ -1,29 +1,38 @@
-import 'package:booking_group_flutter/models/comment.dart';
+import 'package:booking_group_flutter/models/post.dart';
 import 'package:flutter/material.dart';
 
 class ForumCommentProfileSheet extends StatelessWidget {
-  final Comment comment;
+  final UserResponse user;
   final bool canInvite;
   final bool isInviting;
   final bool isMember;
   final bool alreadyInvited;
   final bool isSelf;
   final VoidCallback? onInvite;
+  final String? note;
+  final String? noteLabel;
 
   const ForumCommentProfileSheet({
     super.key,
-    required this.comment,
+    required this.user,
     required this.canInvite,
     required this.isInviting,
     required this.isMember,
     required this.alreadyInvited,
     required this.isSelf,
     this.onInvite,
+    this.note,
+    this.noteLabel,
   });
 
   @override
   Widget build(BuildContext context) {
-    final user = comment.userResponse;
+    final avatarUrl = user.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+    final displayName = user.displayName;
+    final emailText = user.safeEmail;
+    final majorText = user.major;
+    final noteTitle = noteLabel ?? 'Thông tin liên quan';
 
     return SafeArea(
       child: Padding(
@@ -41,14 +50,11 @@ class ForumCommentProfileSheet extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundImage: user.avatarUrl != null
-                          ? NetworkImage(user.avatarUrl!)
-                          : null,
-                      child: user.avatarUrl == null
+                      backgroundImage:
+                          hasAvatar ? NetworkImage(avatarUrl) : null,
+                      child: !hasAvatar
                           ? Text(
-                              user.fullName.isNotEmpty
-                                  ? user.fullName.substring(0, 1).toUpperCase()
-                                  : '?',
+                              user.avatarInitial,
                               style: const TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -58,7 +64,7 @@ class ForumCommentProfileSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      user.fullName,
+                      displayName,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
@@ -66,7 +72,7 @@ class ForumCommentProfileSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      user.email,
+                      emailText,
                       style: TextStyle(
                         color: Colors.grey.shade600,
                       ),
@@ -75,7 +81,35 @@ class ForumCommentProfileSheet extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              if (user.major != null && user.major!.isNotEmpty)
+              if (note != null && note!.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        noteTitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        note!,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              if (majorText != null && majorText.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(
@@ -84,7 +118,7 @@ class ForumCommentProfileSheet extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          user.major!,
+                          majorText,
                           style: const TextStyle(fontSize: 14),
                         ),
                       ),

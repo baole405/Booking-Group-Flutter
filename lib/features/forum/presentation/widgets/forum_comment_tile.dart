@@ -30,17 +30,17 @@ class ForumCommentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = comment.userResponse;
+    final avatarUrl = user.avatarUrl;
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+    final displayName = user.displayName;
 
     return ListTile(
       leading: CircleAvatar(
         radius: 20,
-        backgroundImage:
-            user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
-        child: user.avatarUrl == null
+        backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
+        child: !hasAvatar
             ? Text(
-                user.fullName.isNotEmpty
-                    ? user.fullName.substring(0, 1).toUpperCase()
-                    : '?',
+                user.avatarInitial,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               )
             : null,
@@ -53,7 +53,7 @@ class ForumCommentTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.fullName,
+                  displayName,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
                   ),

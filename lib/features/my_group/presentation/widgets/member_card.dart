@@ -5,8 +5,14 @@ import 'package:flutter/material.dart';
 class MemberCard extends StatelessWidget {
   final GroupMember member;
   final UserProfile? leader;
+  final bool isCurrentUser;
 
-  const MemberCard({super.key, required this.member, this.leader});
+  const MemberCard({
+    super.key,
+    required this.member,
+    this.leader,
+    this.isCurrentUser = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +102,21 @@ class MemberCard extends StatelessWidget {
                 fontSize: 11,
                 color: Colors.blue.shade700,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        if (isCurrentUser)
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Tooltip(
+              message: 'Bạn',
+              child: Container(
+                width: 10,
+                height: 10,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF8B5CF6),
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ),

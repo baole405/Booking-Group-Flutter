@@ -28,6 +28,15 @@ class ApiConstants {
   static const String myGroup = '/groups/my-group';
   static String get myGroupUrl => '$baseApiUrl$myGroup';
 
+  static const String updateGroup = '/groups/update';
+  static String get updateGroupUrl => '$baseApiUrl$updateGroup';
+
+  static const String changeGroupType = '/groups/change-type';
+  static String get changeGroupTypeUrl => '$baseApiUrl$changeGroupType';
+
+  static const String completeGroup = '/groups/done';
+  static String get completeGroupUrl => '$baseApiUrl$completeGroup';
+
   // Invite Endpoints
   static const String invites = '/invites';
   static String get invitesUrl => '$baseApiUrl$invites';

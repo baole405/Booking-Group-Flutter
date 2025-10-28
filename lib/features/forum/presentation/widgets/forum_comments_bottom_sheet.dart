@@ -219,8 +219,9 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
+        final user = comment.userResponse;
         return ForumCommentProfileSheet(
-          comment: comment,
+          user: user,
           canInvite: _canInvite &&
               !_isMember(comment) &&
               !_isInvited(comment) &&
@@ -230,6 +231,8 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
           isMember: _isMember(comment),
           alreadyInvited: _isInvited(comment),
           isSelf: _isSelf(comment),
+          note: comment.content,
+          noteLabel: 'Nội dung bình luận',
           onInvite: _canInvite && widget.post.groupResponse != null
               ? () => _handleInvite(comment, sheetContext)
               : null,
