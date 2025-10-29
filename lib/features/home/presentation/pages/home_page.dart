@@ -78,20 +78,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    if (!mounted) return;
-
-    final pendingRequests = _extractPendingRequests(requests);
-    final latestRequest = pendingRequests.isNotEmpty ? pendingRequests.first : null;
-
-    setState(() {
-      _myGroup = myGroup;
-      _requestCount = pendingRequests.length;
-      _latestPendingRequest = latestRequest;
-      _latestRequestStatusLabel =
-          latestRequest != null ? _mapStatusToLabel(latestRequest.status) : null;
-      _latestRequestTimeLabel =
-          latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
-    });
   }
 
   /// Load the current group info and pending join requests for the home highlights
