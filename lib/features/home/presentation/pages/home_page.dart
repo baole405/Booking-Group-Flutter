@@ -10,10 +10,14 @@ import 'package:booking_group_flutter/features/home/presentation/widgets/your_re
 import 'package:booking_group_flutter/features/ideas/presentation/pages/all_ideas_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/my_group_detail_page.dart';
 import 'package:booking_group_flutter/features/requests/presentation/pages/your_requests_page.dart';
+import 'package:booking_group_flutter/models/join_request.dart';
+import 'package:booking_group_flutter/models/my_group.dart';
 import 'package:booking_group_flutter/resources/join_request_api.dart';
+import 'package:booking_group_flutter/resources/my_group_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -25,12 +29,17 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ApiService _apiService = ApiService();
   final JoinRequestApi _joinRequestApi = JoinRequestApi();
+  final MyGroupApi _myGroupApi = MyGroupApi();
 
   // State variables
   bool _isLoading = true;
   String? _error;
   String? _userEmail;
   int _requestCount = 0;
+  MyGroup? _myGroup;
+  JoinRequest? _latestPendingRequest;
+  String? _latestRequestStatusLabel;
+  String? _latestRequestTimeLabel;
 
   @override
   void initState() {
@@ -52,35 +61,135 @@ class _HomePageState extends State<HomePage> {
         _userEmail = user.email;
       }
 
-      // Load join requests count
-      await _loadRequestCount();
+      // Load group & join requests information
+      await _loadGroupAndRequests();
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+        });
+      }
       print('❌ Error loading user data: $e');
     } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Load the current group info and pending join requests for the home highlights
+  Future<void> _loadGroupAndRequests() async {
+    MyGroup? myGroup;
+    List<JoinRequest> requests = [];
+
+    try {
+      myGroup = await _myGroupApi.getMyGroup();
+    } catch (e) {
+      print('❌ Error loading my group: $e');
+    }
+
+    try {
+      requests = await _joinRequestApi.getMyJoinRequests();
+    } catch (e) {
+      print('❌ Error loading requests: $e');
+    }
+
+    if (!mounted) return;
+
+    final pendingRequests = _extractPendingRequests(requests);
+    final latestRequest = pendingRequests.isNotEmpty ? pendingRequests.first : null;
+
+    setState(() {
+      _myGroup = myGroup;
+      _requestCount = pendingRequests.length;
+      _latestPendingRequest = latestRequest;
+      _latestRequestStatusLabel =
+          latestRequest != null ? _mapStatusToLabel(latestRequest.status) : null;
+      _latestRequestTimeLabel =
+          latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
+    });
+  }
+
+  /// Refresh join requests data only (used after returning from the request screen)
+  Future<void> _refreshJoinRequests() async {
+    try {
+      final requests = await _joinRequestApi.getMyJoinRequests();
+      if (!mounted) return;
+
+      final pendingRequests = _extractPendingRequests(requests);
+      final latestRequest = pendingRequests.isNotEmpty ? pendingRequests.first : null;
+
       setState(() {
-        _isLoading = false;
+        _requestCount = pendingRequests.length;
+        _latestPendingRequest = latestRequest;
+        _latestRequestStatusLabel = latestRequest != null
+            ? _mapStatusToLabel(latestRequest.status)
+            : null;
+        _latestRequestTimeLabel =
+            latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
+      });
+    } catch (e) {
+      print('❌ Error refreshing requests: $e');
+      if (!mounted) return;
+      setState(() {
+        _requestCount = 0;
+        _latestPendingRequest = null;
+        _latestRequestStatusLabel = null;
+        _latestRequestTimeLabel = null;
       });
     }
   }
 
-  /// Load join requests count
-  Future<void> _loadRequestCount() async {
+  /// Refresh only the current group data (used when returning from other screens)
+  Future<void> _refreshMyGroup() async {
     try {
-      final requests = await _joinRequestApi.getMyJoinRequests();
+      final myGroup = await _myGroupApi.getMyGroup();
+      if (!mounted) return;
       setState(() {
-        // Count only pending requests
-        _requestCount = requests
-            .where((r) => r.status.toUpperCase() == 'PENDING')
-            .length;
+        _myGroup = myGroup;
       });
     } catch (e) {
-      print('❌ Error loading requests: $e');
-      setState(() {
-        _requestCount = 0;
-      });
+      print('❌ Error refreshing my group: $e');
+    }
+  }
+
+  List<JoinRequest> _extractPendingRequests(List<JoinRequest> requests) {
+    final pending = requests
+        .where((r) => r.status.toUpperCase() == 'PENDING')
+        .toList()
+      ..sort((a, b) => _parseDate(b.createdAt).compareTo(_parseDate(a.createdAt)));
+    return pending;
+  }
+
+  DateTime _parseDate(String dateStr) {
+    try {
+      return DateTime.parse(dateStr).toLocal();
+    } catch (_) {
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+  }
+
+  String? _formatRequestTime(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr).toLocal();
+      return 'Gửi lúc ${DateFormat('HH:mm dd/MM').format(date)}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _mapStatusToLabel(String status) {
+    switch (status.toUpperCase()) {
+      case 'PENDING':
+        return 'Đang chờ xác nhận';
+      case 'APPROVED':
+        return 'Đã được chấp nhận';
+      case 'REJECTED':
+        return 'Đã bị từ chối';
+      default:
+        return status;
     }
   }
 
@@ -192,6 +301,18 @@ class _HomePageState extends State<HomePage> {
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         child: YourRequestSectionCard(
                           requestCount: _requestCount,
+                          latestGroupTitle: _myGroup == null
+                              ? _latestPendingRequest?.group?.title ??
+                                  (_latestPendingRequest != null
+                                      ? 'Group ID: ${_latestPendingRequest!.groupId}'
+                                      : null)
+                              : null,
+                          latestStatusLabel:
+                              _myGroup == null ? _latestRequestStatusLabel : null,
+                          latestTimeLabel:
+                              _myGroup == null ? _latestRequestTimeLabel : null,
+                          showLatestRequestHighlight:
+                              _myGroup == null && _latestPendingRequest != null,
                           onTap: () async {
                             await Navigator.push(
                               context,
@@ -199,8 +320,10 @@ class _HomePageState extends State<HomePage> {
                                 builder: (context) => const YourRequestsPage(),
                               ),
                             );
-                            // Reload count after returning
-                            _loadRequestCount();
+                            await Future.wait([
+                              _refreshJoinRequests(),
+                              _refreshMyGroup(),
+                            ]);
                           },
                         ),
                       ),

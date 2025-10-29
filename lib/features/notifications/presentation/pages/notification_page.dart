@@ -1,557 +1,316 @@
-import 'package:booking_group_flutter/app/theme/app_theme.dart';
+import 'package:booking_group_flutter/features/notifications/application/notification_controller.dart';
+import 'package:booking_group_flutter/features/notifications/presentation/widgets/notification_tile.dart';
+import 'package:booking_group_flutter/features/notifications/presentation/widgets/notifications_app_bar.dart';
+import 'package:booking_group_flutter/features/notifications/presentation/widgets/section_header.dart';
+import 'package:booking_group_flutter/features/notifications/presentation/widgets/selection_toolbar.dart';
+import 'package:booking_group_flutter/models/app_notification.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 class NotificationPage extends StatefulWidget {
-  const NotificationPage({super.key, this.onBack});
+  const NotificationPage({
+    super.key,
+    this.onBack,
+    required this.controller,
+  });
 
   final VoidCallback? onBack;
+  final NotificationController controller;
 
   @override
   State<NotificationPage> createState() => _NotificationPageState();
 }
 
 class _NotificationPageState extends State<NotificationPage> {
-  final List<_NotificationItem> _todayNotifications = [
-    _NotificationItem(
-      id: '1',
-      title: 'Join Group Successfully',
-      message: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-      timeLabel: '10:00 am',
-      isUnread: true,
-    ),
-    _NotificationItem(
-      id: '2',
-      title: 'New Idea Notification',
-      message: 'Lorem ipsum dolor sit amet.',
-      timeLabel: '10:00 am',
-      isUnread: true,
-    ),
-    _NotificationItem(
-      id: '3',
-      title: 'Your favorite group gonna over',
-      message: 'Lorem ipsum dolor sit amet.',
-      timeLabel: '09:00 am',
-    ),
-  ];
-
-  final List<_NotificationItem> _previousNotifications = [
-    _NotificationItem(
-      id: '4',
-      title: 'Late Return Warning',
-      message:
-          'Late Return Alert! Please return the car as soon as possible to avoid extra charges.',
-      timeLabel: 'Yesterday',
-    ),
-    _NotificationItem(
-      id: '5',
-      title: 'Cancellation Notice',
-      message: 'Your reservation has been cancelled successfully.',
-      timeLabel: 'Yesterday',
-    ),
-    _NotificationItem(
-      id: '6',
-      title: 'Discount Notification',
-      message: 'Congratulations! You unlocked a 10% discount on your rental.',
-      timeLabel: 'Yesterday',
-    ),
-  ];
-
   bool _selectionMode = false;
+  final Set<int> _selectedIds = <int>{};
 
-  int get _totalUnread =>
-      _todayNotifications.where((item) => item.isUnread).length +
-      _previousNotifications.where((item) => item.isUnread).length;
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.controller.initialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.controller.loadNotifications();
+      });
+    }
+  }
 
-  int get _selectedCount =>
-      _todayNotifications.where((item) => item.isSelected).length +
-      _previousNotifications.where((item) => item.isSelected).length;
-
-  bool get _allSelected => _selectedCount > 0 &&
-      _selectedCount ==
-          (_todayNotifications.length + _previousNotifications.length);
+  @override
+  void didUpdateWidget(covariant NotificationPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller &&
+        !widget.controller.initialized) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.controller.loadNotifications();
+      });
+    }
+  }
 
   void _toggleSelectionMode([bool? value]) {
     setState(() {
       _selectionMode = value ?? !_selectionMode;
       if (!_selectionMode) {
-        _clearSelections();
+        _selectedIds.clear();
       }
     });
   }
 
-  void _clearSelections() {
-    for (final item in _todayNotifications) {
-      item.isSelected = false;
-    }
-    for (final item in _previousNotifications) {
-      item.isSelected = false;
-    }
-  }
-
-  void _handleSelectItem(_NotificationItem item) {
+  void _toggleSelection(AppNotification notification) {
     if (!_selectionMode) {
-      setState(() {
-        if (item.isUnread) item.isUnread = false;
+      widget.controller.markNotificationAsRead(notification).catchError((error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Không thể đánh dấu đã đọc: $error')),
+        );
       });
       return;
     }
-    setState(() {
-      item.isSelected = !item.isSelected;
-      if (_selectedCount == 0) {
-        _selectionMode = false;
-      }
-    });
-  }
 
-  void _selectAll(bool select) {
     setState(() {
-      for (final item in _todayNotifications) {
-        item.isSelected = select;
-      }
-      for (final item in _previousNotifications) {
-        item.isSelected = select;
-      }
-      if (!select) {
-        _selectionMode = false;
+      if (_selectedIds.contains(notification.id)) {
+        _selectedIds.remove(notification.id);
       } else {
-        _selectionMode = true;
+        _selectedIds.add(notification.id);
+      }
+      if (_selectedIds.isEmpty) {
+        _selectionMode = false;
       }
     });
   }
 
-  void _deleteSelected() {
+  void _handleLongPress(AppNotification notification) {
+    if (_selectionMode) return;
     setState(() {
-      _todayNotifications.removeWhere((item) => item.isSelected);
-      _previousNotifications.removeWhere((item) => item.isSelected);
-      if (_selectedCount == 0) {
-        _selectionMode = false;
-      }
+      _selectionMode = true;
+      _selectedIds.add(notification.id);
     });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selected notifications removed')),
-      );
-    }
   }
+
+  void _handleDeleteSelected() {
+    if (_selectedIds.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tính năng xóa thông báo sẽ được cập nhật sau.'),
+      ),
+    );
+  }
+
+  bool get _allSelected =>
+      _selectedIds.isNotEmpty &&
+      widget.controller.notifications
+          .every((notification) => _selectedIds.contains(notification.id));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Column(
-          children: [
-            _NotificationsAppBar(
-              onBack: widget.onBack,
-              onMore: () => _toggleSelectionMode(true),
-            ),
-            if (_selectionMode) ...[
-              _SelectionToolbar(
-                allSelected: _allSelected,
-                selectedCount: _selectedCount,
-                onSelectAll: (value) => _selectAll(value ?? false),
-                onDelete: _selectedCount > 0 ? _deleteSelected : null,
-              ),
-              const SizedBox(height: 12),
-            ],
-            Expanded(
-              child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _SectionHeader(
-                      title: 'Today',
-                      subtitle:
-                          '${_totalUnread.clamp(0, 99)} Unread Notification',
-                    ),
-                    const SizedBox(height: 16),
-                    ..._todayNotifications.map(
-                      (item) => _NotificationTile(
-                        item: item,
-                        selectionMode: _selectionMode,
-                        onTap: () => _handleSelectItem(item),
-                        onLongPress: () {
-                          if (!_selectionMode) {
-                            setState(() {
-                              _selectionMode = true;
-                              item.isSelected = true;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _SectionHeader(
-                      title: 'Previous',
-                      subtitle: 'Older notifications',
-                    ),
-                    const SizedBox(height: 16),
-                    ..._previousNotifications.map(
-                      (item) => _NotificationTile(
-                        item: item,
-                        selectionMode: _selectionMode,
-                        onTap: () => _handleSelectItem(item),
-                        onLongPress: () {
-                          if (!_selectionMode) {
-                            setState(() {
-                              _selectionMode = true;
-                              item.isSelected = true;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                  ],
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            final notifications = widget.controller.notifications;
+            final unreadCount = widget.controller.unreadCount;
+
+            final todayNotifications = notifications
+                .where((notification) =>
+                    _isSameDay(notification.createdAt, DateTime.now()))
+                .toList();
+            final previousNotifications = notifications
+                .where((notification) =>
+                    !_isSameDay(notification.createdAt, DateTime.now()))
+                .toList();
+
+            return Column(
+              children: [
+                NotificationsAppBar(
+                  onBack: widget.onBack,
+                  onSelectMode: () => _toggleSelectionMode(true),
                 ),
+                if (_selectionMode)
+                  SelectionToolbar(
+                    allSelected: _allSelected,
+                    selectedCount: _selectedIds.length,
+                    onSelectAll: (value) {
+                      setState(() {
+                        if (value == true) {
+                          _selectedIds
+                            ..clear()
+                            ..addAll(notifications.map((n) => n.id));
+                        } else {
+                          _selectedIds.clear();
+                          _selectionMode = false;
+                        }
+                      });
+                    },
+                    onDelete: _selectedIds.isEmpty ? null : _handleDeleteSelected,
+                  ),
+                if (_selectionMode) const SizedBox(height: 12),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () => widget.controller.refreshNotifications(),
+                    child: _buildContent(
+                      context,
+                      todayNotifications,
+                      previousNotifications,
+                      unreadCount,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    List<AppNotification> todayNotifications,
+    List<AppNotification> previousNotifications,
+    int unreadCount,
+  ) {
+    if (widget.controller.isLoading && !widget.controller.initialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (widget.controller.errorMessage != null) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 80),
+          Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              widget.controller.errorMessage!,
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: FilledButton(
+              onPressed: widget.controller.loadNotifications,
+              child: const Text('Thử lại'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (todayNotifications.isEmpty && previousNotifications.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          const SizedBox(height: 80),
+          Icon(Icons.notifications_none,
+              size: 72, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Center(
+            child: Text(
+              'Không có thông báo nào',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              'Bạn sẽ nhận thông báo khi có hoạt động mới.',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodySmall
+                  ?.copyWith(color: Colors.grey.shade600),
+            ),
+          ),
+          const SizedBox(height: 80),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (todayNotifications.isNotEmpty) ...[
+            NotificationSectionHeader(
+              title: 'Today',
+              subtitle: '${unreadCount.clamp(0, 99)} Unread Notification',
+            ),
+            const SizedBox(height: 16),
+            ...todayNotifications.map(
+              (notification) => NotificationTile(
+                notification: notification,
+                timeLabel: _formatTimeLabel(notification),
+                selectionMode: _selectionMode,
+                selected: _selectedIds.contains(notification.id),
+                onTap: () => _toggleSelection(notification),
+                onLongPress: () => _handleLongPress(notification),
               ),
             ),
+            const SizedBox(height: 24),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({
-    required this.item,
-    required this.selectionMode,
-    required this.onTap,
-    required this.onLongPress,
-  });
-
-  final _NotificationItem item;
-  final bool selectionMode;
-  final VoidCallback onTap;
-  final VoidCallback onLongPress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: selectionMode && item.isSelected
-            ? const Color.fromRGBO(31, 34, 37, 0.08)
-            : Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 200),
-                transitionBuilder: (child, animation) =>
-                    ScaleTransition(scale: animation, child: child),
-                child: selectionMode
-                    ? _SelectionIndicator(
-                        selected: item.isSelected,
-                      )
-                    : _NotificationIcon(
-                        unread: item.isUnread,
-                      ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            item.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          item.timeLabel,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey.shade600,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                        ),
-                        if (item.isUnread)
-                          Container(
-                            margin: const EdgeInsets.only(left: 8),
-                            height: 8,
-                            width: 8,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Color(0xFF3366FF),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item.message,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: Colors.grey.shade600),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationsAppBar extends StatelessWidget {
-  const _NotificationsAppBar({
-    this.onBack,
-    required this.onMore,
-  });
-
-  final VoidCallback? onBack;
-  final VoidCallback onMore;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          _RoundIconButton(
-            icon: Icons.arrow_back_ios_new,
-            onTap: onBack,
-          ),
-          Expanded(
-            child: Center(
-              child: Text(
-                'Notification',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+          if (previousNotifications.isNotEmpty) ...[
+            NotificationSectionHeader(
+              title: 'Previous',
+              subtitle: 'Older notifications',
+            ),
+            const SizedBox(height: 16),
+            ...previousNotifications.map(
+              (notification) => NotificationTile(
+                notification: notification,
+                timeLabel: _formatTimeLabel(notification),
+                selectionMode: _selectionMode,
+                selected: _selectedIds.contains(notification.id),
+                onTap: () => _toggleSelection(notification),
+                onLongPress: () => _handleLongPress(notification),
               ),
             ),
-          ),
-          PopupMenuButton<_NotificationMenu>(
-            onSelected: (value) {
-              if (value == _NotificationMenu.select) {
-                onMore();
-              }
-            },
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            itemBuilder: (context) => [
-              PopupMenuItem<_NotificationMenu>(
-                value: _NotificationMenu.select,
-                child: Row(
-                  children: [
-                    Icon(Icons.done_all, color: Colors.grey.shade700, size: 20),
-                    const SizedBox(width: 12),
-                    const Text('Select notifications'),
-                  ],
-                ),
+            const SizedBox(height: 24),
+          ],
+          if (widget.controller.isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(),
               ),
-            ],
-            child: const _RoundIconButton(
-              icon: Icons.more_horiz,
             ),
-          ),
         ],
       ),
     );
   }
-}
 
-class _SelectionToolbar extends StatelessWidget {
-  const _SelectionToolbar({
-    required this.allSelected,
-    required this.selectedCount,
-    required this.onSelectAll,
-    required this.onDelete,
-  });
+  bool _isSameDay(DateTime? source, DateTime target) {
+    if (source == null) return false;
+    return source.year == target.year &&
+        source.month == target.month &&
+        source.day == target.day;
+  }
 
-  final bool allSelected;
-  final int selectedCount;
-  final ValueChanged<bool?> onSelectAll;
-  final VoidCallback? onDelete;
+  String _formatTimeLabel(AppNotification notification) {
+    final createdAt = notification.createdAt;
+    if (createdAt == null) {
+      return '';
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        children: [
-          Checkbox(
-            value: allSelected,
-            onChanged: onSelectAll,
-            shape: const CircleBorder(),
-            activeColor: AppTheme.primaryDark,
-          ),
-          Text(
-            'All',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const Spacer(),
-          Text(
-            '$selectedCount Selected',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          const SizedBox(width: 12),
-          _RoundIconButton(
-            icon: Icons.delete_outline,
-            onTap: onDelete,
-            disabled: onDelete == null,
-          ),
-        ],
-      ),
-    );
+    final now = DateTime.now();
+    if (_isSameDay(createdAt, now)) {
+      return DateFormat('HH:mm').format(createdAt);
+    }
+
+    final difference = now.difference(createdAt).inDays;
+    if (difference == 1) {
+      return 'Yesterday';
+    }
+
+    if (difference < 7) {
+      return DateFormat.E().format(createdAt);
+    }
+
+    return DateFormat('dd/MM/yyyy').format(createdAt);
   }
 }
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const Spacer(),
-        Text(
-          subtitle,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-      ],
-    );
-  }
-}
-
-class _NotificationIcon extends StatelessWidget {
-  const _NotificationIcon({required this.unread});
-
-  final bool unread;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: ValueKey(unread),
-      height: 44,
-      width: 44,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: unread ? AppTheme.primaryDark : Colors.white,
-        border: Border.all(
-          color: unread ? Colors.transparent : Colors.grey.shade300,
-        ),
-      ),
-      child: Icon(
-        unread ? Icons.notifications_active : Icons.notifications_none,
-        color: unread ? Colors.white : Colors.grey.shade700,
-      ),
-    );
-  }
-}
-
-class _SelectionIndicator extends StatelessWidget {
-  const _SelectionIndicator({required this.selected});
-
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: ValueKey(selected),
-      height: 44,
-      width: 44,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: AppTheme.primaryDark,
-      ),
-      child: Icon(
-        selected ? Icons.check : Icons.radio_button_unchecked,
-        color: Colors.white,
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    this.onTap,
-    this.disabled = false,
-  });
-
-  final IconData icon;
-  final VoidCallback? onTap;
-  final bool disabled;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: disabled ? null : onTap,
-      child: Container(
-        height: 44,
-        width: 44,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: disabled ? Colors.grey.shade300 : Colors.grey.shade100,
-        ),
-        alignment: Alignment.center,
-        child: Icon(
-          icon,
-          color: disabled ? Colors.grey.shade500 : Colors.grey.shade800,
-        ),
-      ),
-    );
-  }
-}
-
-class _NotificationItem {
-  _NotificationItem({
-    required this.id,
-    required this.title,
-    required this.message,
-    required this.timeLabel,
-    this.isUnread = false,
-  });
-
-  final String id;
-  final String title;
-  final String message;
-  final String timeLabel;
-  bool isUnread;
-  bool isSelected = false;
-}
-
-enum _NotificationMenu { select }
