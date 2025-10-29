@@ -1,6 +1,7 @@
 import 'package:booking_group_flutter/features/groups/presentation/pages/group_detail_page.dart';
 import 'package:booking_group_flutter/features/groups/presentation/widgets/group_card.dart';
 import 'package:booking_group_flutter/features/groups/presentation/widgets/groups_filter_section.dart';
+import 'package:booking_group_flutter/features/groups/presentation/widgets/groups_search_bar.dart';
 import 'package:booking_group_flutter/models/group.dart';
 import 'package:booking_group_flutter/resources/group_api.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,8 @@ class GroupsListPage extends StatefulWidget {
 class _GroupsListPageState extends State<GroupsListPage> {
   final GroupApi _groupApi = const GroupApi();
 
+  final TextEditingController _searchController = TextEditingController();
+
   bool _isLoading = true;
   String? _errorMessage;
   List<Group> _groups = [];
@@ -23,11 +26,18 @@ class _GroupsListPageState extends State<GroupsListPage> {
   // Filter states
   String? _selectedType;
   String? _selectedStatus;
+  String _searchTerm = '';
 
   @override
   void initState() {
     super.initState();
     _loadGroups();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadGroups() async {
@@ -56,6 +66,13 @@ class _GroupsListPageState extends State<GroupsListPage> {
 
   List<Group> get _filteredGroups {
     var filtered = _groups;
+
+    if (_searchTerm.isNotEmpty) {
+      final query = _searchTerm.toLowerCase();
+      filtered = filtered
+          .where((g) => g.title.toLowerCase().contains(query))
+          .toList();
+    }
 
     if (_selectedType != null) {
       filtered = filtered.where((g) => g.type == _selectedType).toList();
@@ -144,6 +161,26 @@ class _GroupsListPageState extends State<GroupsListPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: GroupsSearchBar(
+            controller: _searchController,
+            onChanged: (value) {
+              setState(() {
+                _searchTerm = value;
+              });
+            },
+            onClear: () {
+              setState(() {
+                _searchTerm = '';
+                _searchController.clear();
+              });
+            },
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
         // Filters
         GroupsFilterSection(
           selectedType: _selectedType,

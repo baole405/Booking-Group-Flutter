@@ -77,6 +77,21 @@ class _HomePageState extends State<HomePage> {
         });
       }
     }
+
+    if (!mounted) return;
+
+    final pendingRequests = _extractPendingRequests(requests);
+    final latestRequest = pendingRequests.isNotEmpty ? pendingRequests.first : null;
+
+    setState(() {
+      _myGroup = myGroup;
+      _requestCount = pendingRequests.length;
+      _latestPendingRequest = latestRequest;
+      _latestRequestStatusLabel =
+          latestRequest != null ? _mapStatusToLabel(latestRequest.status) : null;
+      _latestRequestTimeLabel =
+          latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
+    });
   }
 
   /// Load the current group info and pending join requests for the home highlights
@@ -105,8 +120,7 @@ class _HomePageState extends State<HomePage> {
       _myGroup = myGroup;
       _requestCount = pendingRequests.length;
       _latestPendingRequest = latestRequest;
-      _latestRequestStatusLabel =
-          latestRequest != null ? _mapStatusToLabel(latestRequest.status) : null;
+      _latestRequestStatusLabel = _buildLatestStatusLabel(latestRequest);
       _latestRequestTimeLabel =
           latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
     });
@@ -124,9 +138,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         _requestCount = pendingRequests.length;
         _latestPendingRequest = latestRequest;
-        _latestRequestStatusLabel = latestRequest != null
-            ? _mapStatusToLabel(latestRequest.status)
-            : null;
+        _latestRequestStatusLabel = _buildLatestStatusLabel(latestRequest);
         _latestRequestTimeLabel =
             latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
       });
@@ -180,17 +192,41 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  String _mapStatusToLabel(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return 'Đang chờ xác nhận';
+  String? _buildLatestStatusLabel(JoinRequest? request) {
+    if (request == null) return null;
+
+    final status = request.status.toUpperCase();
+    if (status == 'PENDING') {
+      final int groupNumber = request.group?.id ?? request.groupId;
+      if (groupNumber > 0) {
+        return 'Đang chờ Leader nhóm số $groupNumber xử lý';
+      }
+      return 'Đang chờ Leader xử lý';
+    }
+
+    switch (status) {
       case 'APPROVED':
         return 'Đã được chấp nhận';
       case 'REJECTED':
         return 'Đã bị từ chối';
       default:
-        return status;
+        return request.status;
     }
+  }
+
+  String? _deriveGroupTitle(JoinRequest? request) {
+    if (request == null) return null;
+
+    final String? groupTitle = request.group?.title;
+    if (groupTitle != null && groupTitle.trim().isNotEmpty) {
+      return groupTitle;
+    }
+
+    if (request.groupId > 0) {
+      return 'Nhóm #${request.groupId}';
+    }
+
+    return null;
   }
 
   /// Logout handler
@@ -302,10 +338,7 @@ class _HomePageState extends State<HomePage> {
                         child: YourRequestSectionCard(
                           requestCount: _requestCount,
                           latestGroupTitle: _myGroup == null
-                              ? _latestPendingRequest?.group?.title ??
-                                  (_latestPendingRequest != null
-                                      ? 'Group ID: ${_latestPendingRequest!.groupId}'
-                                      : null)
+                              ? _deriveGroupTitle(_latestPendingRequest)
                               : null,
                           latestStatusLabel:
                               _myGroup == null ? _latestRequestStatusLabel : null,
