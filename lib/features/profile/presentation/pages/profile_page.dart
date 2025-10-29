@@ -62,7 +62,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // 2. Lấy thông tin từ Backend API (major, studentCode, etc.)
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('bearer_token');
+      final token = prefs.getString('bearerToken');
 
       if (token != null) {
         try {
@@ -129,7 +129,7 @@ class _ProfilePageState extends State<ProfilePage> {
       await FirebaseAuth.instance.signOut();
       // Xóa token từ SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('bearer_token');
+      await prefs.remove('bearerToken');
       await prefs.remove('user_email');
 
       if (mounted) {

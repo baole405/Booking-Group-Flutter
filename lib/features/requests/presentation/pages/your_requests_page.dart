@@ -102,6 +102,32 @@ class _YourRequestsPageState extends State<YourRequestsPage> {
     }
   }
 
+  String _groupTitle(JoinRequest request) {
+    final String? groupTitle = request.group?.title;
+    if (groupTitle != null && groupTitle.trim().isNotEmpty) {
+      return groupTitle;
+    }
+
+    if (request.groupId > 0) {
+      return 'Nhóm #${request.groupId}';
+    }
+
+    return 'Nhóm không xác định';
+  }
+
+  String? _pendingLeaderMessage(JoinRequest request) {
+    if (request.status.toUpperCase() != 'PENDING') {
+      return null;
+    }
+
+    final int groupNumber = request.group?.id ?? request.groupId;
+    if (groupNumber > 0) {
+      return 'Đang chờ Leader nhóm số $groupNumber xử lý';
+    }
+
+    return 'Đang chờ Leader xử lý';
+  }
+
   Color _getStatusColor(String status) {
     switch (status.toUpperCase()) {
       case 'PENDING':
@@ -226,6 +252,7 @@ class _YourRequestsPageState extends State<YourRequestsPage> {
                     const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final request = _requests[index];
+                  final leaderMessage = _pendingLeaderMessage(request);
                   return Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
@@ -240,8 +267,7 @@ class _YourRequestsPageState extends State<YourRequestsPage> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  request.group?.title ??
-                                      'Group ID: ${request.groupId}',
+                                  _groupTitle(request),
                                   style: const TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
@@ -288,6 +314,30 @@ class _YourRequestsPageState extends State<YourRequestsPage> {
                               ),
                             ],
                           ),
+                          if (leaderMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.info_outline,
+                                  size: 18,
+                                  color: Color(0xFF8B5CF6),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    leaderMessage,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF8B5CF6),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           if (request.status.toUpperCase() == 'PENDING') ...[
                             const SizedBox(height: 12),
                             SizedBox(
