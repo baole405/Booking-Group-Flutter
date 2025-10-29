@@ -28,7 +28,7 @@ class UserProfile {
       email: json['email'] as String? ?? '',
       cwu: json['cwu'] as String?,
       avatarUrl: _extractAvatarUrl(json['avatarUrl']),
-      major: json['major'] != null ? Major.fromJson(json['major']) : null,
+      major: _resolveMajor(json),
       role: json['role'] as String? ?? 'STUDENT',
       isActive: json['isActive'] as bool? ?? true,
     );
@@ -85,6 +85,34 @@ String? _extractAvatarUrl(dynamic avatar) {
         return candidate;
       }
     }
+  }
+
+  return null;
+}
+
+Major? _resolveMajor(Map<String, dynamic> json) {
+  final dynamic majorData = json['major'];
+  if (majorData is Map<String, dynamic>) {
+    return Major.fromJson(majorData);
+  }
+
+  if (majorData is String && majorData.trim().isNotEmpty) {
+    return Major(name: majorData.trim());
+  }
+
+  final fallbackName = json['majorName'] ?? json['major_name'];
+  final fallbackId = json['majorId'] ?? json['major_id'];
+  if (fallbackName is String && fallbackName.trim().isNotEmpty) {
+    return Major(
+      id: fallbackId is int
+          ? fallbackId
+          : fallbackId is num
+              ? fallbackId.toInt()
+              : fallbackId is String
+                  ? int.tryParse(fallbackId)
+                  : null,
+      name: fallbackName.trim(),
+    );
   }
 
   return null;

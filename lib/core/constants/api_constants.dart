@@ -78,6 +78,14 @@ class ApiConstants {
     return '$baseApiUrl$comments/post/$postId';
   }
 
+  // Notification Endpoints
+  static const String notifications = '/notifications';
+  static String get notificationsUrl => '$baseApiUrl$notifications';
+
+  static String markNotificationAsReadUrl(int notificationId) {
+    return '$baseApiUrl$notifications/$notificationId/read';
+  }
+
   static String getGroupMembersUrl(int groupId) {
     return '$baseApiUrl$groups/$groupId/members';
   }
