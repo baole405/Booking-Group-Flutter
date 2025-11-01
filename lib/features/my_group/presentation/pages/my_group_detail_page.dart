@@ -1,11 +1,13 @@
 import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/group_ideas_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_info_card.dart';
+import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_member_profile_sheet.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/members_section.dart';
 import 'package:booking_group_flutter/models/group_member.dart';
 import 'package:booking_group_flutter/models/my_group.dart';
 import 'package:booking_group_flutter/models/user_profile.dart';
 import 'package:booking_group_flutter/resources/my_group_api.dart';
+import 'package:booking_group_flutter/resources/notifications_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -18,36 +20,37 @@ class MyGroupDetailPage extends StatefulWidget {
 
 class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
   final MyGroupApi _myGroupApi = MyGroupApi();
+  final NotificationsApi _notificationsApi = NotificationsApi();
 
   MyGroup? _myGroup;
-  List<GroupMember> _members = [];
+  List<GroupMember> _members = const [];
   UserProfile? _leader;
+
   bool _isLoading = true;
-  String? _error;
+  bool _isBusy = false;
   bool _isLeader = false;
-  bool _isPerformingAction = false;
+  String? _errorMessage;
   String? _currentUserEmail;
 
   @override
   void initState() {
     super.initState();
-    _currentUserEmail = FirebaseAuth.instance.currentUser?.email;
-    _loadGroupData();
+    _currentUserEmail = FirebaseAuth.instance.currentUser?.email?.toLowerCase();
+    _loadGroupOverview();
   }
 
-  Future<void> _loadGroupData({int retryCount = 0}) async {
+  Future<void> _loadGroupOverview({int retry = 0}) async {
     setState(() {
       _isLoading = true;
-      _error = null;
+      _errorMessage = null;
     });
 
     try {
       final myGroup = await _myGroupApi.getMyGroup();
-
       if (myGroup == null) {
         setState(() {
           _myGroup = null;
-          _members = [];
+          _members = const [];
           _leader = null;
           _isLeader = false;
         });
@@ -59,27 +62,23 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
         _myGroupApi.getGroupLeader(myGroup.id),
       ]);
 
+      final leaderProfile = results[1] as UserProfile?;
+      final leaderEmail = leaderProfile?.email.toLowerCase();
+
       setState(() {
         _myGroup = myGroup;
         _members = results[0] as List<GroupMember>;
-        _leader = results[1] as UserProfile?;
-        final leaderEmail = _leader?.email.toLowerCase();
-        _isLeader = leaderEmail != null &&
-            _currentUserEmail != null &&
-            leaderEmail == _currentUserEmail!.toLowerCase();
+        _leader = leaderProfile;
+        _isLeader = leaderEmail != null && leaderEmail == _currentUserEmail;
       });
-    } catch (e) {
-      // Retry once if it's a 500 error and we haven't retried yet
-      if (e.toString().contains('500') && retryCount < 2) {
-        print(
-          '⚠️ Got 500 error, retrying in 2 seconds... (attempt ${retryCount + 1}/2)',
-        );
+    } catch (error) {
+      if (error.toString().contains('500') && retry < 2) {
         await Future.delayed(const Duration(seconds: 2));
-        return _loadGroupData(retryCount: retryCount + 1);
+        return _loadGroupOverview(retry: retry + 1);
       }
 
       setState(() {
-        _error = e.toString();
+        _errorMessage = error.toString();
         _isLeader = false;
       });
     } finally {
@@ -89,15 +88,92 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     }
   }
 
-  void _navigateToIdeasPage() {
-    if (_myGroup == null) return;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
+  }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-            GroupIdeasPage(groupId: _myGroup!.id, leader: _leader),
+  AppBar _buildAppBar() {
+    return AppBar(
+      title: const Text('Your Group'),
+      backgroundColor: const Color(0xFF8B5CF6),
+      foregroundColor: Colors.white,
+      actions: [
+        if (!_isLoading && _myGroup != null)
+          TextButton.icon(
+            onPressed: _isBusy ? null : () async => _handleLeaveGroup(),
+            icon: const Icon(Icons.logout, color: Colors.white),
+            label: const Text('Leave', style: TextStyle(color: Colors.white)),
+            style: TextButton.styleFrom(foregroundColor: Colors.white),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_myGroup == null) {
+      return _buildEmptyState();
+    }
+
+    if (_errorMessage != null) {
+      return _buildErrorState();
+    }
+
+    return RefreshIndicator(
+      onRefresh: () => _loadGroupOverview(),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: _buildLoadedContent(),
       ),
+    );
+  }
+
+  Widget _buildLoadedContent() {
+    final group = _myGroup!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GroupInfoCard(
+          group: group,
+          memberCount: _members.length,
+          showLeaderActions: _isLeader,
+          actionsEnabled: !_isBusy,
+          onEditInfo: _isLeader ? _handleEditGroupInfo : null,
+          onToggleType: _isLeader ? _handleToggleGroupType : null,
+        ),
+        const SizedBox(height: 24),
+        MembersSection(
+          members: _members,
+          leader: _leader,
+          currentUserEmail: _currentUserEmail,
+          onMemberTap: _handleMemberTap,
+          interactionsDisabled: _isBusy,
+        ),
+        const SizedBox(height: 24),
+        _buildIdeasCard(),
+        if (_isLeader) ...[
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isBusy ? null : _handleCompleteGroup,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Mark group as completed'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: const Color(0xFF16A34A),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -115,7 +191,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Bạn chưa tham gia nhóm nào',
+              'You are not part of any group yet.',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -125,7 +201,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Hãy tham gia một nhóm để bắt đầu\nlàm việc cùng các thành viên khác',
+              'Join a group to start collaborating with other members.',
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
               textAlign: TextAlign.center,
             ),
@@ -140,7 +216,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
                 );
               },
               icon: const Icon(Icons.group_add),
-              label: const Text('Xem danh sách nhóm'),
+              label: const Text('Browse groups'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8B5CF6),
                 foregroundColor: Colors.white,
@@ -165,18 +241,25 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
 
   Widget _buildErrorState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(_error!, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _loadGroupData,
-            child: const Text('Thử lại'),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.redAccent),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage ?? 'Something went wrong.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.redAccent),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadGroupOverview,
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -210,7 +293,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ý tưởng của nhóm',
+                      'Group ideas',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -218,7 +301,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Xem và quản lý ý tưởng',
+                      'View and manage submitted ideas.',
                       style: TextStyle(color: Colors.grey, fontSize: 14),
                     ),
                   ],
@@ -232,62 +315,12 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nhóm của bạn'),
-        backgroundColor: const Color(0xFF8B5CF6),
-        foregroundColor: Colors.white,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _myGroup == null
-          ? _buildEmptyState()
-          : _error != null
-          ? _buildErrorState()
-          : RefreshIndicator(
-              onRefresh: _loadGroupData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GroupInfoCard(
-                      group: _myGroup!,
-                      memberCount: _members.length,
-                      showLeaderActions: _isLeader,
-                      actionsEnabled: !_isPerformingAction,
-                      onEditInfo: _isLeader ? _handleEditGroupInfo : null,
-                      onToggleType:
-                          _isLeader ? _handleToggleGroupType : null,
-                      onCompleteGroup:
-                          _isLeader ? _handleCompleteGroup : null,
-                    ),
-                    const SizedBox(height: 24),
-                    MembersSection(
-                      members: _members,
-                      leader: _leader,
-                      currentUserEmail: _currentUserEmail,
-                    ),
-                    const SizedBox(height: 24),
-                    _buildIdeasCard(),
-                  ],
-                ),
-              ),
-            ),
-    );
-  }
-
   Future<void> _handleEditGroupInfo() async {
     final group = _myGroup;
     if (group == null || !_isLeader) return;
 
     final updatedValues = await _showEditGroupDialog(group);
-    if (updatedValues == null) {
-      return;
-    }
+    if (updatedValues == null) return;
 
     await _performGroupAction(
       () => _myGroupApi.updateGroupInfo(
@@ -295,7 +328,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
         title: updatedValues['title']!,
         description: updatedValues['description']!,
       ),
-      successMessage: 'Đã cập nhật thông tin nhóm',
+      successMessage: 'Group info updated',
     );
   }
 
@@ -305,21 +338,20 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
 
     final currentType = group.type.toUpperCase();
     final nextType = currentType == 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+
     final confirmed = await _showConfirmationDialog(
-      title: 'Thay đổi trạng thái nhóm',
+      title: 'Change group type',
       message:
-          'Bạn có chắc muốn chuyển nhóm sang chế độ ${nextType == 'PUBLIC' ? 'Công khai' : 'Riêng tư'}?',
-      confirmLabel: 'Xác nhận',
+          'Switch group visibility to ${nextType == 'PUBLIC' ? 'public' : 'private'}?',
+      confirmLabel: 'Confirm',
     );
 
-    if (confirmed != true) {
-      return;
-    }
+    if (confirmed != true) return;
 
     await _performGroupAction(
       () => _myGroupApi.changeGroupType(),
       successMessage:
-          'Đã chuyển trạng thái nhóm sang ${nextType == 'PUBLIC' ? 'Công khai' : 'Riêng tư'}',
+          'Group is now ${nextType == 'PUBLIC' ? 'public' : 'private'}',
     );
   }
 
@@ -328,20 +360,132 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     if (group == null || !_isLeader) return;
 
     final confirmed = await _showConfirmationDialog(
-      title: 'Hoàn tất nhóm',
+      title: 'Complete group',
       message:
-          'Khi hoàn tất, nhóm sẽ không thể thay đổi thành viên nữa. Bạn có chắc chắn?',
-      confirmLabel: 'Hoàn tất',
+          'After marking as completed you will not be able to change members. Continue?',
+      confirmLabel: 'Complete',
     );
 
-    if (confirmed != true) {
-      return;
-    }
+    if (confirmed != true) return;
 
     await _performGroupAction(
       () => _myGroupApi.completeGroup(),
-      successMessage: 'Nhóm đã được đánh dấu hoàn tất',
+      successMessage: 'Group marked as completed',
     );
+  }
+
+  Future<void> _handleMemberTap(GroupMember member) async {
+    final isCurrentUser =
+        _currentUserEmail != null &&
+        member.email.toLowerCase() == _currentUserEmail;
+
+    bool isSheetBusy = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> kickMember() async {
+              if (_isBusy || isSheetBusy) return;
+              setModalState(() {
+                isSheetBusy = true;
+              });
+              await _confirmAndRemoveMember(member, sheetContext);
+              if (context.mounted) {
+                setModalState(() {
+                  isSheetBusy = false;
+                });
+              }
+            }
+
+            return GroupMemberProfileSheet(
+              member: member,
+              isCurrentUser: isCurrentUser,
+              viewerIsLeader: _isLeader,
+              isProcessing: isSheetBusy || _isBusy,
+              onKickMember: (!_isLeader || isCurrentUser) ? null : kickMember,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmAndRemoveMember(
+    GroupMember member,
+    BuildContext sheetContext,
+  ) async {
+    final confirmed = await _showConfirmationDialog(
+      title: 'Remove member',
+      message: 'Remove ${member.fullName} from the group?',
+      confirmLabel: 'Remove',
+    );
+
+    if (confirmed != true) return;
+
+    var removalCompleted = false;
+
+    await _performGroupAction(() async {
+      await _myGroupApi.removeMember(member.id);
+      removalCompleted = true;
+
+      final groupName = _myGroup?.title ?? 'your group';
+      try {
+        await _notificationsApi.sendMemberRemovedNotification(
+          userId: member.id,
+          groupName: groupName,
+        );
+      } catch (error) {
+        debugPrint('Failed to send removal notification: $error');
+      }
+    }, successMessage: 'Removed ${member.fullName} from the group');
+
+    if (!mounted) return;
+    if (removalCompleted && sheetContext.mounted) {
+      Navigator.of(sheetContext).pop();
+    }
+  }
+
+  Future<void> _handleLeaveGroup() async {
+    final group = _myGroup;
+    if (group == null || _isBusy) return;
+
+    if (_isLeader) {
+      final hasOtherActiveMembers = _members.any(
+        (member) =>
+            member.isActive && member.email.toLowerCase() != _currentUserEmail,
+      );
+
+      if (hasOtherActiveMembers) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Leader cannot leave while there are other active members.',
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+    }
+
+    final confirmed = await _showConfirmationDialog(
+      title: 'Leave group',
+      message: 'Leave ${group.title}?',
+      confirmLabel: 'Leave',
+    );
+
+    if (confirmed != true) return;
+
+    await _performGroupAction(() async {
+      await _myGroupApi.leaveGroup();
+    }, successMessage: 'You have left the group');
   }
 
   Future<void> _performGroupAction(
@@ -349,50 +493,45 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     required String successMessage,
   }) async {
     setState(() {
-      _isPerformingAction = true;
+      _isBusy = true;
     });
 
     try {
       await action();
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(successMessage),
-          backgroundColor: Colors.green,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(successMessage)));
 
-      await _loadGroupData();
-    } catch (e) {
+      await _loadGroupOverview();
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (!mounted) return;
       setState(() {
-        _isPerformingAction = false;
+        _isBusy = false;
       });
     }
   }
 
   Future<Map<String, String>?> _showEditGroupDialog(MyGroup group) async {
     final titleController = TextEditingController(text: group.title);
-    final descriptionController =
-        TextEditingController(text: group.description);
-    String? errorMessage;
+    final descriptionController = TextEditingController(
+      text: group.description,
+    );
+    String? localError;
 
     return showDialog<Map<String, String>>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (context, setStateDialog) {
+          builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Cập nhật thông tin nhóm'),
+              title: const Text('Update group info'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -400,23 +539,22 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
                     TextField(
                       controller: titleController,
                       decoration: const InputDecoration(
-                        labelText: 'Tên nhóm',
+                        labelText: 'Group name',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: descriptionController,
                       decoration: const InputDecoration(
-                        labelText: 'Mô tả nhóm',
+                        labelText: 'Description',
                       ),
                       maxLines: 4,
                     ),
-                    if (errorMessage != null) ...[
+                    if (localError != null) ...[
                       const SizedBox(height: 12),
                       Text(
-                        errorMessage!,
-                        style:
-                            const TextStyle(color: Colors.red, fontSize: 12),
+                        localError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
                       ),
                     ],
                   ],
@@ -425,7 +563,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Hủy'),
+                  child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -433,18 +571,17 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
                     final description = descriptionController.text.trim();
 
                     if (title.isEmpty) {
-                      setStateDialog(() {
-                        errorMessage = 'Tên nhóm không được để trống';
+                      setDialogState(() {
+                        localError = 'Group name cannot be empty';
                       });
                       return;
                     }
 
-                    Navigator.of(dialogContext).pop({
-                      'title': title,
-                      'description': description,
-                    });
+                    Navigator.of(
+                      dialogContext,
+                    ).pop({'title': title, 'description': description});
                   },
-                  child: const Text('Lưu'),
+                  child: const Text('Save'),
                 ),
               ],
             );
@@ -468,7 +605,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Hủy'),
+              child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -477,6 +614,19 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
           ],
         );
       },
+    );
+  }
+
+  void _navigateToIdeasPage() {
+    final group = _myGroup;
+    if (group == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            GroupIdeasPage(groupId: group.id, leader: _leader),
+      ),
     );
   }
 }
