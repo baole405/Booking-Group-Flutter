@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/group_ideas_page.dart';
+import 'package:booking_group_flutter/features/forum/presentation/widgets/forum_comment_profile_sheet.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_info_card.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_member_profile_sheet.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/members_section.dart';
 import 'package:booking_group_flutter/models/group_member.dart';
 import 'package:booking_group_flutter/models/user_profile.dart';
 import 'package:booking_group_flutter/models/my_group.dart';
+import 'package:booking_group_flutter/models/post.dart';
 import 'package:booking_group_flutter/resources/my_group_api.dart';
 import 'package:booking_group_flutter/resources/notifications_api.dart';
 import 'package:booking_group_flutter/resources/votes_api.dart';
@@ -155,7 +157,20 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
       bool hasVoted = false;
 
       if (selectedVote != null) {
-        choices = await _votesApi.getVoteChoices(selectedVote['id'] as int);
+        Map<String, dynamic> enrichedVote =
+            Map<String, dynamic>.from(selectedVote);
+
+        try {
+          final detail =
+              await _votesApi.getVoteDetail(selectedVote['id'] as int);
+          enrichedVote.addAll(detail);
+        } catch (error) {
+          debugPrint('Failed to load vote detail: $error');
+        }
+
+        choices = await _votesApi.getVoteChoices(
+          enrichedVote['id'] as int,
+        );
         final currentEmail = _currentUserEmail;
         if (currentEmail != null) {
           hasVoted = choices.any((choice) {
@@ -164,6 +179,8 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
             return voterEmail?.toLowerCase() == currentEmail;
           });
         }
+
+        selectedVote = enrichedVote;
       }
 
       if (!mounted) return;
@@ -303,15 +320,21 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     }
 
     final vote = _activeVote!;
-    final targetName =
-        vote['targetUserFullName'] ??
-        vote['targetUserName'] ??
-        vote['targetUserEmail'] ??
-        'Member';
-    final targetEmail = vote['targetUserEmail'] ?? 'Unknown email';
-    final targetMajor = vote['targetUserMajor'] ?? 'Major not available';
+    final targetUser = _buildVoteTargetUser(vote);
+    final displayName = targetUser?.displayName ?? _resolveVoteTargetName(vote);
+    final majorText =
+        targetUser?.major ?? _normalizeMajor(vote['targetUserMajor']);
+    final emailText = targetUser != null
+        ? targetUser.safeEmail
+        : _readNullableString(vote['targetUserEmail']) ?? '';
+    final avatarUrl =
+        targetUser?.avatarUrl ?? _resolveVoteAvatarUrl(vote);
+    final avatarImage = _createAvatarImage(avatarUrl);
+    final avatarInitial =
+        targetUser?.avatarInitial ?? _computeInitial(displayName);
     final closedAt = vote['closedAt'];
     final status = (vote['status'] as String?)?.toUpperCase();
+    final hasAvatar = avatarImage != null;
 
     final yesVotes = _activeVoteChoices
         .where(
@@ -340,55 +363,84 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
               'Join request vote',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: const Color(
-                    0xFF8B5CF6,
-                  ).withValues(alpha: 0.1),
-                  child: Text(
-                    targetName.isNotEmpty ? targetName[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF8B5CF6),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: targetUser != null
+                  ? () => _openVoteTargetProfile(targetUser)
+                  : null,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: const Color(0xFF8B5CF6).withValues(
+                        alpha: 0.1,
+                      ),
+                      backgroundImage: avatarImage,
+                      child: !hasAvatar
+                          ? Text(
+                              avatarInitial,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF8B5CF6),
+                              ),
+                            )
+                          : null,
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            displayName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (majorText != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                majorText,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          if (emailText.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                emailText,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        targetName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        targetMajor,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        targetEmail,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
+            if (targetUser != null) ...[
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _openVoteTargetProfile(targetUser),
+                  child: const Text('Xem hồ sơ'),
+                ),
+              ),
+            ],
             if (closedAt != null) ...[
               const SizedBox(height: 8),
               Row(
@@ -481,6 +533,226 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
           const SizedBox(height: 4),
           Text('$count vote${count == 1 ? '' : 's'}'),
         ],
+      ),
+    );
+  }
+
+  String _computeInitial(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return '?';
+    }
+    return trimmed[0].toUpperCase();
+  }
+
+  ImageProvider? _createAvatarImage(String? url) {
+    if (url == null) return null;
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return NetworkImage(trimmed);
+  }
+
+  String? _normalizeMajor(dynamic value) {
+    if (value == null) return null;
+
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    if (value is Map<String, dynamic>) {
+      final candidates = [value['name'], value['title'], value['majorName']];
+      for (final candidate in candidates) {
+        final text = _readNullableString(candidate);
+        if (text != null) return text;
+      }
+    }
+
+    return null;
+  }
+
+  String? _resolveVoteAvatarUrl(Map<String, dynamic> vote) {
+    final candidates = [
+      vote['targetUserAvatarUrl'],
+      vote['targetUserAvatar'],
+      vote['targetUserAvatarSignedUrl'],
+      vote['targetUserAvatarPath'],
+      vote['targetUserAvatarValue'],
+    ];
+
+    for (final candidate in candidates) {
+      final url = _extractAvatarUrlValue(candidate);
+      if (url != null) return url;
+    }
+
+    final target = vote['targetUser'];
+    if (target is Map<String, dynamic>) {
+      final url = _extractAvatarUrlValue(target['avatarUrl']);
+      if (url != null) return url;
+    }
+
+    return null;
+  }
+
+  String? _extractAvatarUrlValue(dynamic value) {
+    if (value == null) return null;
+
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    if (value is Map<String, dynamic>) {
+      for (final key in ['url', 'signedUrl', 'path', 'value']) {
+        final candidate = value[key];
+        final resolved = _extractAvatarUrlValue(candidate);
+        if (resolved != null) return resolved;
+      }
+    }
+
+    return null;
+  }
+
+  String _resolveVoteTargetName(Map<String, dynamic> vote) {
+    final candidates = [
+      vote['targetUserFullName'],
+      vote['targetUserName'],
+      vote['targetUserDisplayName'],
+      vote['targetUserEmail'],
+    ];
+
+    for (final candidate in candidates) {
+      final text = _readNullableString(candidate);
+      if (text != null) return text;
+    }
+
+    final target = vote['targetUser'];
+    if (target is Map<String, dynamic>) {
+      final text = _readNullableString(target['fullName']) ??
+          _readNullableString(target['displayName']) ??
+          _readNullableString(target['email']);
+      if (text != null) return text;
+    }
+
+    return 'Member';
+  }
+
+  UserResponse? _buildVoteTargetUser(Map<String, dynamic> vote) {
+    final target = vote['targetUser'];
+    if (target is Map<String, dynamic> && target.isNotEmpty) {
+      return UserResponse.fromJson(target);
+    }
+
+    final hasUserHints = [
+      vote['targetUserFullName'],
+      vote['targetUserEmail'],
+      vote['targetUserStudentCode'],
+      vote['targetUserName'],
+      vote['targetUserDisplayName'],
+    ].any((element) => _readNullableString(element) != null);
+    final targetId = _readInt(vote['targetUserId']);
+
+    if (!hasUserHints && targetId == 0) {
+      return null;
+    }
+
+    final data = <String, dynamic>{
+      'id': targetId,
+      'studentCode': _readString(vote['targetUserStudentCode']),
+      'fullName': _readString(vote['targetUserFullName']),
+      'email': _readString(vote['targetUserEmail']),
+      'role': _readString(vote['targetUserRole'], fallback: 'STUDENT'),
+      'isActive': _readBool(vote['targetUserActive'], fallback: true),
+    };
+
+    final prefix = _readNullableString(vote['targetUserPrefix']);
+    if (prefix != null) {
+      data['prefix'] = prefix;
+    }
+
+    final major = vote['targetUserMajor'];
+    if (major != null) {
+      data['major'] = major;
+    }
+
+    final avatarUrl = _resolveVoteAvatarUrl(vote);
+    if (avatarUrl != null) {
+      data['avatarUrl'] = avatarUrl;
+    }
+
+    return UserResponse.fromJson(data);
+  }
+
+  String? _readNullableString(dynamic value) {
+    if (value == null) return null;
+
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+
+    if (value is num || value is bool) {
+      return value.toString();
+    }
+
+    return null;
+  }
+
+  String _readString(dynamic value, {String fallback = ''}) {
+    return _readNullableString(value) ?? fallback;
+  }
+
+  int _readInt(dynamic value, {int fallback = 0}) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? fallback;
+    }
+    return fallback;
+  }
+
+  bool _readBool(dynamic value, {bool fallback = true}) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return fallback;
+  }
+
+  Future<void> _openVoteTargetProfile(UserResponse user) async {
+    final normalizedEmail = user.email.trim().toLowerCase();
+    final isSelf =
+        _currentUserEmail != null &&
+        normalizedEmail.isNotEmpty &&
+        normalizedEmail == _currentUserEmail;
+    final isMember = normalizedEmail.isNotEmpty &&
+        _members.any(
+          (member) => member.email.toLowerCase() == normalizedEmail,
+        );
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => ForumCommentProfileSheet(
+        user: user,
+        canInvite: false,
+        isInviting: false,
+        isMember: isMember,
+        alreadyInvited: false,
+        isSelf: isSelf,
+        onInvite: null,
       ),
     );
   }
