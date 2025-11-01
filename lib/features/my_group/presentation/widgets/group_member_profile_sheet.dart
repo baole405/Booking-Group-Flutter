@@ -41,7 +41,9 @@ class GroupMemberProfileSheet extends StatelessWidget {
                       backgroundImage: hasAvatar
                           ? NetworkImage(avatarUrl)
                           : null,
-                      backgroundColor: const Color(0xFF8B5CF6).withOpacity(0.1),
+                      backgroundColor: const Color(
+                        0xFF8B5CF6,
+                      ).withValues(alpha: 0.1),
                       child: !hasAvatar
                           ? Text(
                               member.fullName.isNotEmpty

@@ -5,7 +5,6 @@ import 'package:booking_group_flutter/models/group_member.dart';
 import 'package:booking_group_flutter/models/idea.dart';
 import 'package:booking_group_flutter/models/my_group.dart';
 import 'package:booking_group_flutter/models/user_profile.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
