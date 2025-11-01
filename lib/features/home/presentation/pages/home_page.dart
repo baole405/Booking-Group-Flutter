@@ -14,6 +14,7 @@ import 'package:booking_group_flutter/models/join_request.dart';
 import 'package:booking_group_flutter/models/my_group.dart';
 import 'package:booking_group_flutter/resources/join_request_api.dart';
 import 'package:booking_group_flutter/resources/my_group_api.dart';
+import 'package:booking_group_flutter/resources/semesters_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> {
   final ApiService _apiService = ApiService();
   final JoinRequestApi _joinRequestApi = JoinRequestApi();
   final MyGroupApi _myGroupApi = MyGroupApi();
+  final SemestersApi _semestersApi = SemestersApi();
 
   // State variables
   bool _isLoading = true;
@@ -40,6 +42,8 @@ class _HomePageState extends State<HomePage> {
   JoinRequest? _latestPendingRequest;
   String? _latestRequestStatusLabel;
   String? _latestRequestTimeLabel;
+  String? _activeSemesterName;
+  bool _isSemesterLoading = false;
 
   @override
   void initState() {
@@ -63,6 +67,7 @@ class _HomePageState extends State<HomePage> {
 
       // Load group & join requests information
       await _loadGroupAndRequests();
+      await _loadActiveSemester();
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -77,7 +82,32 @@ class _HomePageState extends State<HomePage> {
         });
       }
     }
+  }
 
+  Future<void> _loadActiveSemester() async {
+    if (!mounted) return;
+    setState(() {
+      _isSemesterLoading = true;
+    });
+
+    try {
+      final semester = await _semestersApi.fetchActiveSemester();
+      if (!mounted) return;
+      setState(() {
+        _activeSemesterName = semester?.name;
+      });
+    } catch (e) {
+      print('? Error loading active semester: $e');
+      if (!mounted) return;
+      setState(() {
+        _activeSemesterName = null;
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSemesterLoading = false;
+      });
+    }
   }
 
   /// Load the current group info and pending join requests for the home highlights
@@ -100,15 +130,18 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
 
     final pendingRequests = _extractPendingRequests(requests);
-    final latestRequest = pendingRequests.isNotEmpty ? pendingRequests.first : null;
+    final latestRequest = pendingRequests.isNotEmpty
+        ? pendingRequests.first
+        : null;
 
     setState(() {
       _myGroup = myGroup;
       _requestCount = pendingRequests.length;
       _latestPendingRequest = latestRequest;
       _latestRequestStatusLabel = _buildLatestStatusLabel(latestRequest);
-      _latestRequestTimeLabel =
-          latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
+      _latestRequestTimeLabel = latestRequest != null
+          ? _formatRequestTime(latestRequest.createdAt)
+          : null;
     });
   }
 
@@ -119,14 +152,17 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
 
       final pendingRequests = _extractPendingRequests(requests);
-      final latestRequest = pendingRequests.isNotEmpty ? pendingRequests.first : null;
+      final latestRequest = pendingRequests.isNotEmpty
+          ? pendingRequests.first
+          : null;
 
       setState(() {
         _requestCount = pendingRequests.length;
         _latestPendingRequest = latestRequest;
         _latestRequestStatusLabel = _buildLatestStatusLabel(latestRequest);
-        _latestRequestTimeLabel =
-            latestRequest != null ? _formatRequestTime(latestRequest.createdAt) : null;
+        _latestRequestTimeLabel = latestRequest != null
+            ? _formatRequestTime(latestRequest.createdAt)
+            : null;
       });
     } catch (e) {
       print('❌ Error refreshing requests: $e');
@@ -154,10 +190,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   List<JoinRequest> _extractPendingRequests(List<JoinRequest> requests) {
-    final pending = requests
-        .where((r) => r.status.toUpperCase() == 'PENDING')
-        .toList()
-      ..sort((a, b) => _parseDate(b.createdAt).compareTo(_parseDate(a.createdAt)));
+    final pending =
+        requests.where((r) => r.status.toUpperCase() == 'PENDING').toList()
+          ..sort(
+            (a, b) =>
+                _parseDate(b.createdAt).compareTo(_parseDate(a.createdAt)),
+          );
     return pending;
   }
 
@@ -275,6 +313,8 @@ class _HomePageState extends State<HomePage> {
                 child: HomeHeader(
                   userEmail: _userEmail,
                   onLogout: _handleLogout,
+                  semesterName: _activeSemesterName,
+                  isSemesterLoading: _isSemesterLoading,
                 ),
               ),
 
@@ -326,10 +366,12 @@ class _HomePageState extends State<HomePage> {
                           latestGroupTitle: _myGroup == null
                               ? _deriveGroupTitle(_latestPendingRequest)
                               : null,
-                          latestStatusLabel:
-                              _myGroup == null ? _latestRequestStatusLabel : null,
-                          latestTimeLabel:
-                              _myGroup == null ? _latestRequestTimeLabel : null,
+                          latestStatusLabel: _myGroup == null
+                              ? _latestRequestStatusLabel
+                              : null,
+                          latestTimeLabel: _myGroup == null
+                              ? _latestRequestTimeLabel
+                              : null,
                           showLatestRequestHighlight:
                               _myGroup == null && _latestPendingRequest != null,
                           onTap: () async {

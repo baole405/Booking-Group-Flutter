@@ -194,10 +194,8 @@ class _ForumPageState extends State<ForumPage> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => GroupDetailPage(
-          groupId: group.id,
-          groupTitle: group.title,
-        ),
+        builder: (context) =>
+            GroupDetailPage(groupId: group.id, groupTitle: group.title),
       ),
     );
   }
@@ -210,17 +208,16 @@ class _ForumPageState extends State<ForumPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (sheetContext) => ForumCommentsBottomSheet(
-        post: post,
-        parentContext: context,
-      ),
+      builder: (sheetContext) =>
+          ForumCommentsBottomSheet(post: post, parentContext: context),
     );
   }
 
   void _openPosterProfile(Post post) {
     final user = post.userResponse;
     final inviteeId = user.id;
-    final isSelf = _currentUserEmail != null &&
+    final isSelf =
+        _currentUserEmail != null &&
         _currentUserEmail!.toLowerCase() == user.email.toLowerCase();
     final isMember = _myGroupMemberIds.contains(inviteeId);
     final alreadyInvited = _invitedUserIds.contains(inviteeId);
@@ -235,8 +232,6 @@ class _ForumPageState extends State<ForumPage> {
       ),
       builder: (sheetContext) => ForumCommentProfileSheet(
         user: user,
-        note: post.content,
-        noteLabel: 'Nội dung bài đăng',
         canInvite: canInvite && !isMember && !alreadyInvited,
         isInviting: _inviteLoading[inviteeId] ?? false,
         isMember: isMember,
@@ -244,13 +239,13 @@ class _ForumPageState extends State<ForumPage> {
         isSelf: isSelf,
         onInvite: canInvite && !isMember && !alreadyInvited
             ? () => _inviteFromPost(
-                  inviteeId: inviteeId,
-                  groupId: group!.id,
-                  sheetContext: sheetContext,
-                  displayName: user.fullName.isNotEmpty
-                      ? user.fullName
-                      : user.email,
-                )
+                inviteeId: inviteeId,
+                groupId: group!.id,
+                sheetContext: sheetContext,
+                displayName: user.fullName.isNotEmpty
+                    ? user.fullName
+                    : user.email,
+              )
             : null,
       ),
     );
@@ -284,10 +279,7 @@ class _ForumPageState extends State<ForumPage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
     } finally {
       if (!mounted) return;

@@ -117,6 +117,8 @@ class ApiConstants {
   // Major Endpoints
   static const String majors = '/majors';
   static String get majorsUrl => '$baseApiUrl$majors';
+  static const String semesters = '/semesters';
+  static String get semestersUrl => '$baseApiUrl$semesters';
 
   // Headers
   static Map<String, String> get jsonHeaders => {

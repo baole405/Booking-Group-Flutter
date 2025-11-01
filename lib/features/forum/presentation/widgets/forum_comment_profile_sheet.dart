@@ -9,8 +9,6 @@ class ForumCommentProfileSheet extends StatelessWidget {
   final bool alreadyInvited;
   final bool isSelf;
   final VoidCallback? onInvite;
-  final String? note;
-  final String? noteLabel;
 
   const ForumCommentProfileSheet({
     super.key,
@@ -21,8 +19,6 @@ class ForumCommentProfileSheet extends StatelessWidget {
     required this.alreadyInvited,
     required this.isSelf,
     this.onInvite,
-    this.note,
-    this.noteLabel,
   });
 
   @override
@@ -32,7 +28,6 @@ class ForumCommentProfileSheet extends StatelessWidget {
     final displayName = user.displayName;
     final emailText = user.safeEmail;
     final majorText = user.major;
-    final noteTitle = noteLabel ?? 'Thông tin liên quan';
 
     return SafeArea(
       child: Padding(
@@ -50,8 +45,9 @@ class ForumCommentProfileSheet extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 36,
-                      backgroundImage:
-                          hasAvatar ? NetworkImage(avatarUrl) : null,
+                      backgroundImage: hasAvatar
+                          ? NetworkImage(avatarUrl)
+                          : null,
                       child: !hasAvatar
                           ? Text(
                               user.avatarInitial,
@@ -73,42 +69,12 @@ class ForumCommentProfileSheet extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       emailText,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                      ),
+                      style: TextStyle(color: Colors.grey.shade600),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              if (note != null && note!.isNotEmpty)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        noteTitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        note!,
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ),
               if (majorText != null && majorText.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),

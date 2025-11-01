@@ -1,5 +1,4 @@
 import 'package:booking_group_flutter/features/home/presentation/pages/home_page.dart';
-import 'package:booking_group_flutter/features/ideas/presentation/pages/ideas_page.dart';
 import 'package:booking_group_flutter/features/notifications/application/notification_controller.dart';
 import 'package:booking_group_flutter/features/notifications/presentation/pages/notification_page.dart';
 import 'package:booking_group_flutter/features/profile/presentation/pages/profile_page.dart';
@@ -16,6 +15,7 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   int _currentIndex = 0;
 
+  late final PageController _pageController;
   late final List<Widget> _pages;
   late final NotificationController _notificationController;
 
@@ -24,43 +24,44 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     _notificationController = NotificationController();
     _notificationController.loadNotifications();
+    _pageController = PageController(initialPage: _currentIndex);
     _pages = [
       const HomePage(),
-      IdeasPage(
-        onBack: () {
-          setState(() {
-            _currentIndex = 0;
-          });
-        },
-      ),
-      NotificationPage(
-        controller: _notificationController,
-        onBack: () {
-          setState(() {
-            _currentIndex = 0;
-          });
-        },
-      ),
-      ProfilePage(
-        onBack: () {
-          setState(() {
-            _currentIndex = 0;
-          });
-        },
-      ),
+      NotificationPage(controller: _notificationController),
+      const ProfilePage(),
     ];
   }
 
   @override
   void dispose() {
     _notificationController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _pages),
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        onPageChanged: (index) {
+          if (_currentIndex != index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          }
+          if (index == 1) {
+            _notificationController.markAllAsRead().catchError((error) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Khong the cap nhat thong bao: $error')),
+              );
+            });
+          }
+        },
+        children: _pages,
+      ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
         child: AnimatedBuilder(
@@ -69,7 +70,6 @@ class _AppShellState extends State<AppShell> {
             final unreadCount = _notificationController.unreadCount;
             final navItems = [
               const RoundedNavItem(icon: Icons.home_outlined),
-              const RoundedNavItem(icon: Icons.star_outline),
               RoundedNavItem(
                 icon: unreadCount > 0
                     ? Icons.notifications
@@ -83,22 +83,15 @@ class _AppShellState extends State<AppShell> {
               currentIndex: _currentIndex,
               items: navItems,
               onItemSelected: (index) {
+                if (_currentIndex == index) return;
                 setState(() {
                   _currentIndex = index;
                 });
-
-                if (index == 2) {
-                  _notificationController
-                      .markAllAsRead()
-                      .catchError((error) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Không thể cập nhật thông báo: $error'),
-                      ),
-                    );
-                  });
-                }
+                _pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                );
               },
             );
           },

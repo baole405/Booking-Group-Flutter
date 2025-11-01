@@ -16,17 +16,17 @@ class NotificationsAppBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          RoundIconButton(
-            icon: Icons.arrow_back_ios_new,
-            onTap: onBack,
-          ),
+          if (onBack != null)
+            RoundIconButton(icon: Icons.arrow_back_ios_new, onTap: onBack)
+          else
+            const SizedBox(width: 42, height: 42),
           Expanded(
             child: Center(
               child: Text(
                 'Notification',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -51,9 +51,7 @@ class NotificationsAppBar extends StatelessWidget {
                 ),
               ),
             ],
-            child: const RoundIconButton(
-              icon: Icons.more_horiz,
-            ),
+            child: const RoundIconButton(icon: Icons.more_horiz),
           ),
         ],
       ),

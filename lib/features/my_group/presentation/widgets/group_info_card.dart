@@ -65,8 +65,8 @@ class GroupInfoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
@@ -77,7 +77,6 @@ class GroupInfoCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Status badge
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -97,75 +96,71 @@ class GroupInfoCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (showLeaderActions)
-                  PopupMenuButton<_GroupAction>(
-                    enabled: actionsEnabled,
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (action) {
-                      switch (action) {
-                        case _GroupAction.updateInfo:
-                          onEditInfo?.call();
-                          break;
-                        case _GroupAction.toggleType:
-                          onToggleType?.call();
-                          break;
-                        case _GroupAction.completeGroup:
-                          onCompleteGroup?.call();
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem<_GroupAction>(
-                        value: _GroupAction.updateInfo,
-                        child: Text('Cập nhật thông tin'),
-                      ),
-                      PopupMenuItem<_GroupAction>(
-                        value: _GroupAction.toggleType,
-                        child: Text('Thay đổi trạng thái nhóm'),
-                      ),
-                      PopupMenuItem<_GroupAction>(
-                        value: _GroupAction.completeGroup,
-                        child: Text('Hoàn tất nhóm'),
-                      ),
-                    ],
-                  ),
               ],
             ),
-
+            if (showLeaderActions) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.end,
+                  children: [
+                    _buildActionButton(
+                      icon: Icons.edit_outlined,
+                      label: 'Cap nhat thong tin',
+                      onPressed: actionsEnabled && onEditInfo != null
+                          ? onEditInfo
+                          : null,
+                    ),
+                    _buildActionButton(
+                      icon: Icons.swap_horiz_outlined,
+                      label: 'Chuyen trang thai',
+                      onPressed: actionsEnabled && onToggleType != null
+                          ? onToggleType
+                          : null,
+                    ),
+                    _buildActionButton(
+                      icon: Icons.check_circle_outlined,
+                      label: 'Hoan tat nhom',
+                      onPressed: actionsEnabled && onCompleteGroup != null
+                          ? onCompleteGroup
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
-
-            // Description
             Text(
               group.description,
               style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
             ),
-
             const Divider(height: 32),
-
-            // Info rows
             _buildInfoRow(
               Icons.school_outlined,
-              'Học kỳ',
-              group.semester?.name ?? 'Chưa có học kỳ',
+              'Hoc ky',
+              group.semester?.name ?? 'Chua co hoc ky',
             ),
             const SizedBox(height: 12),
             _buildInfoRow(
               Icons.category_outlined,
-              'Loại nhóm',
+              'Loai nhom',
               group.type,
               valueColor: _getTypeColor(group.type),
             ),
             const SizedBox(height: 12),
             _buildInfoRow(
               Icons.calendar_today_outlined,
-              'Ngày tạo',
+              'Ngay tao',
               _formatDate(group.createdAt),
             ),
             const SizedBox(height: 12),
             _buildInfoRow(
               Icons.people_outline,
-              'Số thành viên',
-              '$memberCount người',
+              'So thanh vien',
+              '$memberCount nguoi',
             ),
           ],
         ),
@@ -200,6 +195,20 @@ class GroupInfoCard extends StatelessWidget {
       ],
     );
   }
-}
 
-enum _GroupAction { updateInfo, toggleType, completeGroup }
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    VoidCallback? onPressed,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}

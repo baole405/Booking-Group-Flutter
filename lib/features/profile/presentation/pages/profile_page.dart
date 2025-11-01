@@ -226,21 +226,18 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () {
-            if (widget.onBack != null) {
-              widget.onBack!();
-            } else {
-              Navigator.of(context).maybePop();
-            }
-          },
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.onBack != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+                onPressed: widget.onBack,
+              )
+            : null,
         title: const Text(
           'Hồ sơ cá nhân',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
-        centerTitle: false,
+        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -307,8 +304,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       CircleAvatar(
                         radius: 60,
                         backgroundColor: Colors.grey[200],
-                        backgroundImage:
-                            hasAvatar ? NetworkImage(displayAvatar) : null,
+                        backgroundImage: hasAvatar
+                            ? NetworkImage(displayAvatar)
+                            : null,
                         child: !hasAvatar
                             ? Icon(
                                 Icons.person,

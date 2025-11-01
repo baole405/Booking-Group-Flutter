@@ -57,10 +57,7 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
     });
 
     try {
-      await Future.wait([
-        _loadComments(),
-        _evaluateInvitePermission(),
-      ]);
+      await Future.wait([_loadComments(), _evaluateInvitePermission()]);
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -145,10 +142,7 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
       _commentFocusNode.requestFocus();
     } catch (e) {
       ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -174,10 +168,7 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
     });
 
     try {
-      await _inviteApi.createInvite(
-        groupId: _groupId!,
-        inviteeId: inviteeId,
-      );
+      await _inviteApi.createInvite(groupId: _groupId!, inviteeId: inviteeId);
 
       if (mounted) {
         setState(() {
@@ -197,10 +188,7 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
       );
     } catch (e) {
       ScaffoldMessenger.of(widget.parentContext).showSnackBar(
-        SnackBar(
-          content: Text(e.toString()),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) {
@@ -222,7 +210,8 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
         final user = comment.userResponse;
         return ForumCommentProfileSheet(
           user: user,
-          canInvite: _canInvite &&
+          canInvite:
+              _canInvite &&
               !_isMember(comment) &&
               !_isInvited(comment) &&
               !_isSelf(comment) &&
@@ -231,8 +220,6 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
           isMember: _isMember(comment),
           alreadyInvited: _isInvited(comment),
           isSelf: _isSelf(comment),
-          note: comment.content,
-          noteLabel: 'Nội dung bình luận',
           onInvite: _canInvite && widget.post.groupResponse != null
               ? () => _handleInvite(comment, sheetContext)
               : null,
@@ -285,62 +272,66 @@ class _ForumCommentsBottomSheetState extends State<ForumCommentsBottomSheet> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _error != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.error_outline,
-                                    size: 48, color: Colors.redAccent),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _error!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(color: Colors.redAccent),
-                                ),
-                              ],
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 48,
+                              color: Colors.redAccent,
                             ),
-                          ),
-                        )
-                      : _comments.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.chat_bubble_outline,
-                                      size: 48,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Text('Chưa có bình luận nào.'),
-                                  ],
-                                ),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 12,
-                              ),
-                              itemCount: _comments.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
-                              itemBuilder: (context, index) {
-                                final comment = _comments[index];
-                                return ForumCommentTile(
-                                  comment: comment,
-                                  onProfileTap: () => _openProfile(comment),
-                                  canInvite: _canInvite &&
-                                      !_isSelf(comment) &&
-                                      widget.post.groupResponse != null,
-                                  isMember: _isMember(comment),
-                                  alreadyInvited: _isInvited(comment),
-                                );
-                              },
+                            const SizedBox(height: 12),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.redAccent),
                             ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _comments.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.chat_bubble_outline,
+                              size: 48,
+                              color: Colors.grey.shade500,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text('Chưa có bình luận nào.'),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 12,
+                      ),
+                      itemCount: _comments.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final comment = _comments[index];
+                        return ForumCommentTile(
+                          comment: comment,
+                          onProfileTap: () => _openProfile(comment),
+                          canInvite:
+                              _canInvite &&
+                              !_isSelf(comment) &&
+                              widget.post.groupResponse != null,
+                          isMember: _isMember(comment),
+                          alreadyInvited: _isInvited(comment),
+                        );
+                      },
+                    ),
             ),
             const Divider(height: 1),
             ForumCommentInput(
