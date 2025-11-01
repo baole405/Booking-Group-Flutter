@@ -5,16 +5,20 @@ import 'package:flutter/material.dart';
 import 'member_card.dart';
 
 class MembersSection extends StatelessWidget {
-  final List<GroupMember> members;
-  final UserProfile? leader;
-  final String? currentUserEmail;
-
   const MembersSection({
     super.key,
     required this.members,
     this.leader,
     this.currentUserEmail,
+    this.onMemberTap,
+    this.interactionsDisabled = false,
   });
+
+  final List<GroupMember> members;
+  final UserProfile? leader;
+  final String? currentUserEmail;
+  final ValueChanged<GroupMember>? onMemberTap;
+  final bool interactionsDisabled;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +34,7 @@ class MembersSection extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Thành viên (${members.length})',
+                  'Members (${members.length})',
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -45,7 +49,7 @@ class MembersSection extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Text(
-                    'Chưa có thành viên nào',
+                    'No members yet',
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
                 ),
@@ -55,10 +59,11 @@ class MembersSection extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: members.length,
-                separatorBuilder: (context, index) => const Divider(height: 24),
+                separatorBuilder: (_, __) => const Divider(height: 24),
                 itemBuilder: (context, index) {
                   final member = members[index];
-                  final isCurrentUser = currentUserEmail != null &&
+                  final isCurrentUser =
+                      currentUserEmail != null &&
                       currentUserEmail!.toLowerCase() ==
                           member.email.toLowerCase();
 
@@ -66,6 +71,8 @@ class MembersSection extends StatelessWidget {
                     member: member,
                     leader: leader,
                     isCurrentUser: isCurrentUser,
+                    enabled: !interactionsDisabled,
+                    onTap: onMemberTap,
                   );
                 },
               ),

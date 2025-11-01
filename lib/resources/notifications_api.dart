@@ -85,4 +85,34 @@ class NotificationsApi {
       createdAt: null,
     );
   }
+
+  Future<void> sendMemberRemovedNotification({
+    required int userId,
+    required String groupName,
+  }) async {
+    final token = await _getBearerToken();
+    if (token == null) {
+      throw Exception('Missing authentication token');
+    }
+
+    final message =
+        'B\u1ea1n \u0111\u00e3 b\u1ecb xo\u00e1 kh\u1ecfi nh\u00f3m $groupName.';
+
+    final response = await http.post(
+      Uri.parse(ApiConstants.notificationsUrl),
+      headers: ApiConstants.authHeaders(token),
+      body: jsonEncode({
+        'receiverId': userId,
+        'title': 'C\u1eadp nh\u1eadt nh\u00f3m',
+        'message': message,
+        'type': 'GROUP_REMOVAL',
+      }),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(
+        'Kh\u00f4ng th\u1ec3 g\u1eedi th\u00f4ng b\u00e1o (status: ${response.statusCode})',
+      );
+    }
+  }
 }

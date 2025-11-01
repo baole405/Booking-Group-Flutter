@@ -37,6 +37,12 @@ class ApiConstants {
   static const String completeGroup = '/groups/done';
   static String get completeGroupUrl => '$baseApiUrl$completeGroup';
 
+  static String removeMemberUrl(int userId) {
+    return '$baseApiUrl$groups/members/$userId';
+  }
+
+  static String get leaveGroupUrl => '$baseApiUrl$groups/leave';
+
   // Invite Endpoints
   static const String invites = '/invites';
   static String get invitesUrl => '$baseApiUrl$invites';
