@@ -9,7 +9,6 @@ class GroupInfoCard extends StatelessWidget {
   final bool actionsEnabled;
   final VoidCallback? onEditInfo;
   final VoidCallback? onToggleType;
-  final VoidCallback? onCompleteGroup;
 
   const GroupInfoCard({
     super.key,
@@ -19,7 +18,6 @@ class GroupInfoCard extends StatelessWidget {
     this.actionsEnabled = true,
     this.onEditInfo,
     this.onToggleType,
-    this.onCompleteGroup,
   });
 
   String _formatDate(String dateStr) {
@@ -119,13 +117,6 @@ class GroupInfoCard extends StatelessWidget {
                       label: 'Chuyen trang thai',
                       onPressed: actionsEnabled && onToggleType != null
                           ? onToggleType
-                          : null,
-                    ),
-                    _buildActionButton(
-                      icon: Icons.check_circle_outlined,
-                      label: 'Hoan tat nhom',
-                      onPressed: actionsEnabled && onCompleteGroup != null
-                          ? onCompleteGroup
                           : null,
                     ),
                   ],
