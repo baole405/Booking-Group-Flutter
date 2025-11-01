@@ -1,13 +1,16 @@
+import 'dart:async';
+
 import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/group_ideas_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_info_card.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_member_profile_sheet.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/members_section.dart';
 import 'package:booking_group_flutter/models/group_member.dart';
-import 'package:booking_group_flutter/models/my_group.dart';
 import 'package:booking_group_flutter/models/user_profile.dart';
+import 'package:booking_group_flutter/models/my_group.dart';
 import 'package:booking_group_flutter/resources/my_group_api.dart';
 import 'package:booking_group_flutter/resources/notifications_api.dart';
+import 'package:booking_group_flutter/resources/votes_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -21,16 +24,24 @@ class MyGroupDetailPage extends StatefulWidget {
 class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
   final MyGroupApi _myGroupApi = MyGroupApi();
   final NotificationsApi _notificationsApi = NotificationsApi();
+  final VotesApi _votesApi = VotesApi();
 
   MyGroup? _myGroup;
   List<GroupMember> _members = const [];
   UserProfile? _leader;
 
-  bool _isLoading = true;
+  bool _isGroupLoading = true;
+  bool _isVoteLoading = false;
   bool _isBusy = false;
   bool _isLeader = false;
   String? _errorMessage;
   String? _currentUserEmail;
+
+  Map<String, dynamic>? _activeVote;
+  List<Map<String, dynamic>> _activeVoteChoices = const [];
+  bool _hasVoted = false;
+
+  Timer? _votePollingTimer;
 
   @override
   void initState() {
@@ -39,9 +50,15 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     _loadGroupOverview();
   }
 
-  Future<void> _loadGroupOverview({int retry = 0}) async {
+  @override
+  void dispose() {
+    _votePollingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadGroupOverview({bool fetchVotes = true}) async {
     setState(() {
-      _isLoading = true;
+      _isGroupLoading = true;
       _errorMessage = null;
     });
 
@@ -54,6 +71,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
           _leader = null;
           _isLeader = false;
         });
+        _stopVotePolling();
         return;
       }
 
@@ -71,50 +89,139 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
         _leader = leaderProfile;
         _isLeader = leaderEmail != null && leaderEmail == _currentUserEmail;
       });
-    } catch (error) {
-      if (error.toString().contains('500') && retry < 2) {
-        await Future.delayed(const Duration(seconds: 2));
-        return _loadGroupOverview(retry: retry + 1);
-      }
 
+      if (fetchVotes) {
+        await _loadVotes();
+        _startVotePolling();
+      }
+    } catch (error) {
       setState(() {
         _errorMessage = error.toString();
         _isLeader = false;
       });
     } finally {
+      if (mounted) {
+        setState(() {
+          _isGroupLoading = false;
+        });
+      }
+    }
+  }
+
+  void _startVotePolling() {
+    _votePollingTimer?.cancel();
+    _votePollingTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _loadVotes(updateOnly: true);
+    });
+  }
+
+  void _stopVotePolling() {
+    _votePollingTimer?.cancel();
+    _votePollingTimer = null;
+  }
+
+  Future<void> _loadVotes({bool updateOnly = false}) async {
+    final group = _myGroup;
+    if (group == null) {
+      _stopVotePolling();
+      return;
+    }
+
+    if (!mounted) return;
+
+    if (!updateOnly) {
       setState(() {
-        _isLoading = false;
+        _isVoteLoading = true;
       });
+    }
+
+    try {
+      final voteList = await _votesApi.getGroupVotes(group.id);
+      final openVotes = voteList
+          .where((vote) => (vote['status'] as String?)?.toUpperCase() == 'OPEN')
+          .toList();
+
+      Map<String, dynamic>? selectedVote;
+      if (_activeVote != null &&
+          openVotes.any((vote) => vote['id'] == _activeVote!['id'])) {
+        selectedVote = openVotes.firstWhere(
+          (vote) => vote['id'] == _activeVote!['id'],
+        );
+      } else {
+        selectedVote = openVotes.isNotEmpty ? openVotes.first : null;
+      }
+
+      List<Map<String, dynamic>> choices = const [];
+      bool hasVoted = false;
+
+      if (selectedVote != null) {
+        choices = await _votesApi.getVoteChoices(selectedVote['id'] as int);
+        final currentEmail = _currentUserEmail;
+        if (currentEmail != null) {
+          hasVoted = choices.any((choice) {
+            final voterEmail =
+                (choice['userEmail'] ?? choice['email']) as String?;
+            return voterEmail?.toLowerCase() == currentEmail;
+          });
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _activeVote = selectedVote;
+        _activeVoteChoices = choices;
+        _hasVoted = hasVoted;
+      });
+    } catch (error) {
+      if (mounted && !updateOnly) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load votes: $error')));
+      }
+      if (mounted) {
+        setState(() {
+          _activeVote = null;
+          _activeVoteChoices = const [];
+          _hasVoted = false;
+        });
+      }
+    } finally {
+      if (!updateOnly && mounted) {
+        setState(() {
+          _isVoteLoading = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(appBar: _buildAppBar(), body: _buildBody());
+    return Scaffold(
+      appBar: _buildAppBar(),
+      body: _isGroupLoading ? _buildLoading() : _buildBody(),
+    );
   }
 
-  AppBar _buildAppBar() {
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
       title: const Text('Your Group'),
       backgroundColor: const Color(0xFF8B5CF6),
       foregroundColor: Colors.white,
       actions: [
-        if (!_isLoading && _myGroup != null)
+        if (!_isGroupLoading && _myGroup != null)
           TextButton.icon(
-            onPressed: _isBusy ? null : () async => _handleLeaveGroup(),
+            onPressed: _isBusy ? null : _handleLeaveGroup,
             icon: const Icon(Icons.logout, color: Colors.white),
             label: const Text('Leave', style: TextStyle(color: Colors.white)),
-            style: TextButton.styleFrom(foregroundColor: Colors.white),
           ),
       ],
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Widget _buildLoading() => const Center(child: CircularProgressIndicator());
 
+  Widget _buildBody() {
     if (_myGroup == null) {
       return _buildEmptyState();
     }
@@ -124,44 +231,26 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadGroupOverview(),
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
+      onRefresh: () => _loadGroupOverview(fetchVotes: true),
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        child: _buildLoadedContent(),
-      ),
-    );
-  }
-
-  Widget _buildLoadedContent() {
-    final group = _myGroup!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GroupInfoCard(
-          group: group,
-          memberCount: _members.length,
-          showLeaderActions: _isLeader,
-          actionsEnabled: !_isBusy,
-          onEditInfo: _isLeader ? _handleEditGroupInfo : null,
-          onToggleType: _isLeader ? _handleToggleGroupType : null,
-        ),
-        const SizedBox(height: 24),
-        MembersSection(
-          members: _members,
-          leader: _leader,
-          currentUserEmail: _currentUserEmail,
-          onMemberTap: _handleMemberTap,
-          interactionsDisabled: _isBusy,
-        ),
-        const SizedBox(height: 24),
-        _buildIdeasCard(),
-        if (_isLeader) ...[
+        children: [
+          _buildGroupHeader(),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
+          MembersSection(
+            members: _members,
+            leader: _leader,
+            currentUserEmail: _currentUserEmail,
+            onMemberTap: _handleMemberTap,
+            interactionsDisabled: _isBusy,
+          ),
+          const SizedBox(height: 24),
+          _buildIdeasCard(),
+          const SizedBox(height: 24),
+          _buildVotePanel(),
+          if (_isLeader) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
               onPressed: _isBusy ? null : _handleCompleteGroup,
               icon: const Icon(Icons.check_circle_outline),
               label: const Text('Mark group as completed'),
@@ -171,9 +260,228 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
                 foregroundColor: Colors.white,
               ),
             ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGroupHeader() {
+    final group = _myGroup!;
+    return GroupInfoCard(
+      group: group,
+      memberCount: _members.length,
+      showLeaderActions: _isLeader,
+      actionsEnabled: !_isBusy,
+      onEditInfo: _isLeader ? _handleEditGroupInfo : null,
+      onToggleType: _isLeader ? _handleToggleGroupType : null,
+    );
+  }
+
+  Widget _buildVotePanel() {
+    if (_isVoteLoading) {
+      return const Card(
+        elevation: 2,
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_activeVote == null) {
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No active votes at the moment.',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
+        ),
+      );
+    }
+
+    final vote = _activeVote!;
+    final targetName =
+        vote['targetUserFullName'] ??
+        vote['targetUserName'] ??
+        vote['targetUserEmail'] ??
+        'Member';
+    final targetEmail = vote['targetUserEmail'] ?? 'Unknown email';
+    final targetMajor = vote['targetUserMajor'] ?? 'Major not available';
+    final closedAt = vote['closedAt'];
+    final status = (vote['status'] as String?)?.toUpperCase();
+
+    final yesVotes = _activeVoteChoices
+        .where(
+          (choice) =>
+              (choice['choiceValue'] as String?)?.toUpperCase() == 'YES',
+        )
+        .length;
+    final noVotes = _activeVoteChoices
+        .where(
+          (choice) => (choice['choiceValue'] as String?)?.toUpperCase() == 'NO',
+        )
+        .length;
+
+    final bool voteClosed = status == 'CLOSED';
+    final bool buttonsDisabled = voteClosed || _isBusy || _hasVoted;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Join request vote',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: const Color(
+                    0xFF8B5CF6,
+                  ).withValues(alpha: 0.1),
+                  child: Text(
+                    targetName.isNotEmpty ? targetName[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF8B5CF6),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        targetName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        targetMajor,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        targetEmail,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (closedAt != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.timer_outlined, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Closes at: $closedAt',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildVoteButton('YES', yesVotes, buttonsDisabled),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildVoteButton('NO', noVotes, buttonsDisabled),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildVoteStatus(voteClosed: voteClosed),
+            if (_isLeader && !voteClosed) ...[
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: _isBusy
+                      ? null
+                      : () => _finalizeVote(vote['id'] as int),
+                  icon: const Icon(Icons.gavel_outlined),
+                  label: const Text('Finalize vote (leader)'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoteStatus({required bool voteClosed}) {
+    if (_hasVoted) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 18),
+          const SizedBox(width: 6),
+          Text(
+            'You have already voted',
+            style: TextStyle(color: Colors.green.shade700),
           ),
         ],
-      ],
+      );
+    }
+
+    if (voteClosed) {
+      return Row(
+        children: const [
+          Icon(Icons.lock, color: Colors.redAccent, size: 18),
+          SizedBox(width: 6),
+          Text(
+            'This vote is closed',
+            style: TextStyle(color: Colors.redAccent),
+          ),
+        ],
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildVoteButton(String choiceValue, int count, bool disabled) {
+    return ElevatedButton(
+      onPressed: disabled ? null : () => _submitVote(choiceValue),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        backgroundColor: choiceValue == 'YES'
+            ? const Color(0xFF2563EB)
+            : const Color(0xFFDC2626),
+        foregroundColor: Colors.white,
+      ),
+      child: Column(
+        children: [
+          Text(choiceValue),
+          const SizedBox(height: 4),
+          Text('$count vote${count == 1 ? '' : 's'}'),
+        ],
+      ),
     );
   }
 
@@ -255,7 +563,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadGroupOverview,
+              onPressed: () => _loadGroupOverview(fetchVotes: true),
               child: const Text('Try again'),
             ),
           ],
@@ -278,7 +586,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -315,63 +623,66 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     );
   }
 
-  Future<void> _handleEditGroupInfo() async {
-    final group = _myGroup;
-    if (group == null || !_isLeader) return;
+  Future<void> _submitVote(String choice) async {
+    final vote = _activeVote;
+    if (vote == null || _isBusy) return;
 
-    final updatedValues = await _showEditGroupDialog(group);
-    if (updatedValues == null) return;
+    setState(() {
+      _isBusy = true;
+    });
 
-    await _performGroupAction(
-      () => _myGroupApi.updateGroupInfo(
-        groupId: group.id,
-        title: updatedValues['title']!,
-        description: updatedValues['description']!,
-      ),
-      successMessage: 'Group info updated',
-    );
+    try {
+      await _votesApi.submitChoice(
+        voteId: vote['id'] as int,
+        choiceValue: choice,
+      );
+      await _loadVotes();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Voted $choice successfully')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to vote: $error')));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
+    }
   }
 
-  Future<void> _handleToggleGroupType() async {
-    final group = _myGroup;
-    if (group == null || !_isLeader) return;
+  Future<void> _finalizeVote(int voteId) async {
+    setState(() {
+      _isBusy = true;
+    });
 
-    final currentType = group.type.toUpperCase();
-    final nextType = currentType == 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
-
-    final confirmed = await _showConfirmationDialog(
-      title: 'Change group type',
-      message:
-          'Switch group visibility to ${nextType == 'PUBLIC' ? 'public' : 'private'}?',
-      confirmLabel: 'Confirm',
-    );
-
-    if (confirmed != true) return;
-
-    await _performGroupAction(
-      () => _myGroupApi.changeGroupType(),
-      successMessage:
-          'Group is now ${nextType == 'PUBLIC' ? 'public' : 'private'}',
-    );
-  }
-
-  Future<void> _handleCompleteGroup() async {
-    final group = _myGroup;
-    if (group == null || !_isLeader) return;
-
-    final confirmed = await _showConfirmationDialog(
-      title: 'Complete group',
-      message:
-          'After marking as completed you will not be able to change members. Continue?',
-      confirmLabel: 'Complete',
-    );
-
-    if (confirmed != true) return;
-
-    await _performGroupAction(
-      () => _myGroupApi.completeGroup(),
-      successMessage: 'Group marked as completed',
-    );
+    try {
+      await _votesApi.finalizeVote(voteId);
+      await _loadVotes();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Vote finalized')));
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to finalize vote: $error')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
+    }
   }
 
   Future<void> _handleMemberTap(GroupMember member) async {
@@ -392,14 +703,10 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
           builder: (context, setModalState) {
             Future<void> kickMember() async {
               if (_isBusy || isSheetBusy) return;
-              setModalState(() {
-                isSheetBusy = true;
-              });
+              setModalState(() => isSheetBusy = true);
               await _confirmAndRemoveMember(member, sheetContext);
               if (context.mounted) {
-                setModalState(() {
-                  isSheetBusy = false;
-                });
+                setModalState(() => isSheetBusy = false);
               }
             }
 
@@ -483,14 +790,25 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
 
     if (confirmed != true) return;
 
-    await _performGroupAction(() async {
-      await _myGroupApi.leaveGroup();
-    }, successMessage: 'You have left the group');
+    await _performGroupAction(
+      () async {
+        await _myGroupApi.leaveGroup();
+      },
+      successMessage: 'You have left the group',
+      refreshAfter: false,
+      onSuccess: () {
+        if (mounted) {
+          Navigator.of(context).pop(true);
+        }
+      },
+    );
   }
 
   Future<void> _performGroupAction(
     Future<void> Function() action, {
     required String successMessage,
+    bool refreshAfter = true,
+    VoidCallback? onSuccess,
   }) async {
     setState(() {
       _isBusy = true;
@@ -504,18 +822,82 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
         context,
       ).showSnackBar(SnackBar(content: Text(successMessage)));
 
-      await _loadGroupOverview();
+      if (refreshAfter) {
+        await _loadGroupOverview(fetchVotes: true);
+      }
+
+      onSuccess?.call();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isBusy = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isBusy = false;
+        });
+      }
     }
+  }
+
+  Future<void> _handleEditGroupInfo() async {
+    final group = _myGroup;
+    if (group == null || !_isLeader) return;
+
+    final updatedValues = await _showEditGroupDialog(group);
+    if (updatedValues == null) return;
+
+    await _performGroupAction(
+      () => _myGroupApi.updateGroupInfo(
+        groupId: group.id,
+        title: updatedValues['title']!,
+        description: updatedValues['description']!,
+      ),
+      successMessage: 'Group information updated',
+    );
+  }
+
+  Future<void> _handleToggleGroupType() async {
+    final group = _myGroup;
+    if (group == null || !_isLeader) return;
+
+    final currentType = group.type.toUpperCase();
+    final nextType = currentType == 'PUBLIC' ? 'PRIVATE' : 'PUBLIC';
+
+    final confirmed = await _showConfirmationDialog(
+      title: 'Change group type',
+      message:
+          'Switch group visibility to ${nextType == 'PUBLIC' ? 'public' : 'private'}?',
+      confirmLabel: 'Confirm',
+    );
+
+    if (confirmed != true) return;
+
+    await _performGroupAction(
+      () => _myGroupApi.changeGroupType(),
+      successMessage:
+          'Group is now ${nextType == 'PUBLIC' ? 'public' : 'private'}',
+    );
+  }
+
+  Future<void> _handleCompleteGroup() async {
+    final group = _myGroup;
+    if (group == null || !_isLeader) return;
+
+    final confirmed = await _showConfirmationDialog(
+      title: 'Complete group',
+      message:
+          'After completing the group you will not be able to change members. Continue?',
+      confirmLabel: 'Complete',
+    );
+
+    if (confirmed != true) return;
+
+    await _performGroupAction(
+      () => _myGroupApi.completeGroup(),
+      successMessage: 'Group marked as completed',
+    );
   }
 
   Future<Map<String, String>?> _showEditGroupDialog(MyGroup group) async {

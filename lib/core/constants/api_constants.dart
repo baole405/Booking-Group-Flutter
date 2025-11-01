@@ -126,6 +126,30 @@ class ApiConstants {
   static const String semesters = '/semesters';
   static String get semestersUrl => '$baseApiUrl$semesters';
 
+  // Vote Endpoints
+  static const String votes = '/votes';
+  static String get votesUrl => '$baseApiUrl$votes';
+
+  static String getGroupVotesUrl(int groupId) {
+    return '$baseApiUrl$votes/group/$groupId';
+  }
+
+  static String getVoteDetailUrl(int voteId) {
+    return '$baseApiUrl$votes/$voteId';
+  }
+
+  static String getVoteChoicesUrl(int voteId) {
+    return '$baseApiUrl$votes/$voteId/choices';
+  }
+
+  static String voteChoiceUrl(int voteId, String choiceValue) {
+    return '$baseApiUrl$votes/$voteId/choice?choiceValue=$choiceValue';
+  }
+
+  static String finalizeVoteUrl(int voteId) {
+    return '$baseApiUrl$votes/$voteId/finalize';
+  }
+
   // Headers
   static Map<String, String> get jsonHeaders => {
     'Content-Type': 'application/json',

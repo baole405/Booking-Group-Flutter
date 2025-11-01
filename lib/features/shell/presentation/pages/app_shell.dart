@@ -23,7 +23,6 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _notificationController = NotificationController();
-    _notificationController.loadNotifications();
     _pageController = PageController(initialPage: _currentIndex);
     _pages = [
       const HomePage(),
@@ -39,6 +38,19 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
+  void _refreshNotifications() {
+    _notificationController.loadNotifications().then((_) {
+      if (_notificationController.errorMessage == null) {
+        _notificationController.markAllAsRead().catchError((error) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Khong the cap nhat thong bao: $error')),
+          );
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -52,12 +64,7 @@ class _AppShellState extends State<AppShell> {
             });
           }
           if (index == 1) {
-            _notificationController.markAllAsRead().catchError((error) {
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Khong the cap nhat thong bao: $error')),
-              );
-            });
+            _refreshNotifications();
           }
         },
         children: _pages,
@@ -87,6 +94,9 @@ class _AppShellState extends State<AppShell> {
                 setState(() {
                   _currentIndex = index;
                 });
+                if (index == 1) {
+                  _refreshNotifications();
+                }
                 _pageController.animateToPage(
                   index,
                   duration: const Duration(milliseconds: 280),

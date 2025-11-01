@@ -352,7 +352,12 @@ class _HomePageState extends State<HomePage> {
                             MaterialPageRoute(
                               builder: (context) => const MyGroupDetailPage(),
                             ),
-                          );
+                          ).then((result) {
+                            if (!mounted) return;
+                            if (result == true) {
+                              _loadUserData();
+                            }
+                          });
                         },
                       ),
 

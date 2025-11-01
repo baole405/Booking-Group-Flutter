@@ -31,7 +31,7 @@ class MemberCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: const Color(0xFF8B5CF6).withOpacity(0.1),
+            backgroundColor: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
             backgroundImage: hasAvatar ? NetworkImage(avatarUrl) : null,
             child: !hasAvatar
                 ? Text(
