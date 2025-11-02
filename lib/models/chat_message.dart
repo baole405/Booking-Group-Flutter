@@ -26,6 +26,16 @@ String chatMessageTypeToString(ChatMessageType type) {
   }
 }
 
+int? _parseInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
+}
+
 /// Representation of a single message in a group chat.
 @immutable
 class ChatMessage {
@@ -106,10 +116,10 @@ class ChatMessage {
     }
 
     return ChatMessage(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      groupId: (json['groupId'] as num?)?.toInt() ?? 0,
-      senderId: (json['fromUserId'] as num?)?.toInt() ??
-          (json['senderId'] as num?)?.toInt() ??
+      id: _parseInt(json['id']) ?? 0,
+      groupId: _parseInt(json['groupId']) ?? 0,
+      senderId: _parseInt(json['fromUserId']) ??
+          _parseInt(json['senderId']) ??
           0,
       senderName: (json['fromUserName'] as String?) ??
           (json['senderName'] as String?) ??
@@ -123,7 +133,7 @@ class ChatMessage {
       createdAt: parseDate(json['createdAt']) ?? DateTime.now(),
       updatedAt: parseDate(json['updatedAt']),
       isEdited: json['isEdited'] == true || json['edited'] == true,
-      replyToMessageId: (json['replyToMessageId'] as num?)?.toInt(),
+      replyToMessageId: _parseInt(json['replyToMessageId']),
       replyToContent: json['replyToContent'] as String?,
     );
   }
