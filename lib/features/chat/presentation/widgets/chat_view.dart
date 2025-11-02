@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:booking_group_flutter/features/chat/application/chat_controller.dart';
 import 'package:booking_group_flutter/features/chat/presentation/widgets/chat_message_bubble.dart';
 import 'package:booking_group_flutter/models/chat_message.dart';
@@ -22,10 +24,17 @@ class _ChatViewState extends State<ChatView> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   ChatMessage? _replyTo;
   ChatMessage? _editingMessage;
   int _previousMessageCount = 0;
+  List<ChatMessage> _searchResults = const [];
+  Timer? _searchDebounce;
+  bool _isSearchVisible = false;
+  bool _isSearching = false;
+  String _searchKeyword = '';
 
   @override
   void initState() {
@@ -42,6 +51,9 @@ class _ChatViewState extends State<ChatView> {
     _textController.dispose();
     _scrollController.dispose();
     _inputFocusNode.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -117,6 +129,70 @@ class _ChatViewState extends State<ChatView> {
       TextPosition(offset: _textController.text.length),
     );
     _inputFocusNode.requestFocus();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      if (_isSearchVisible) {
+        _clearSearchState();
+        _isSearchVisible = false;
+      } else {
+        _isSearchVisible = true;
+        _searchFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _clearSearchState() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
+    _searchResults = const [];
+    _searchKeyword = '';
+    _isSearching = false;
+  }
+
+  void _onSearchChanged(String value) {
+    final keyword = value.trim();
+    setState(() {
+      _searchKeyword = keyword;
+    });
+
+    _searchDebounce?.cancel();
+    if (keyword.length < 2) {
+      setState(() {
+        _searchResults = const [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      _performSearch(keyword);
+    });
+  }
+
+  Future<void> _performSearch(String keyword) async {
+    setState(() {
+      _isSearching = true;
+    });
+
+    try {
+      final results = await _controller.searchMessages(keyword);
+      if (!mounted) return;
+      setState(() {
+        _searchResults = results;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSearching = false;
+      });
+    }
   }
 
   Future<void> _handleDelete(ChatMessage message) async {
@@ -238,11 +314,18 @@ class _ChatViewState extends State<ChatView> {
     final isLoading = _controller.isLoading && messages.isEmpty;
     final errorMessage = _controller.errorMessage;
     final currentEmail = _controller.currentUserEmail;
+    final isSearchActive =
+        _isSearchVisible && _searchKeyword.trim().length >= 2;
+    final displayMessages =
+        isSearchActive ? _searchResults : messages;
+    final isDisplayingEmptySearch =
+        isSearchActive && !_isSearching && displayMessages.isEmpty;
 
     return Padding(
       padding: padding,
       child: Column(
         children: [
+          _buildToolbar(),
           if (errorMessage != null && messages.isEmpty)
             Container(
               padding: const EdgeInsets.all(12),
@@ -276,21 +359,34 @@ class _ChatViewState extends State<ChatView> {
                     child: ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      itemCount: messages.isEmpty ? 1 : messages.length,
+                      itemCount:
+                          displayMessages.isEmpty ? 1 : displayMessages.length,
                       itemBuilder: (context, index) {
-                        if (messages.isEmpty) {
-                          return const Center(
+                        if (displayMessages.isEmpty) {
+                          if (isSearchActive && _isSearching) {
+                            return const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 48),
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }
+
+                          final label = isSearchActive
+                              ? 'Không tìm thấy tin nhắn phù hợp.'
+                              : 'Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!';
+                          return Center(
                             child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 48),
+                              padding: const EdgeInsets.symmetric(vertical: 48),
                               child: Text(
-                                'Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!',
-                                style: TextStyle(color: Color(0xFF64748B)),
+                                label,
+                                style: const TextStyle(color: Color(0xFF64748B)),
                               ),
                             ),
                           );
                         }
 
-                        final message = messages[index];
+                        final message = displayMessages[index];
                         final senderEmail = message.senderEmail?.toLowerCase();
                         final isMine = currentEmail != null &&
                             senderEmail != null &&
@@ -307,11 +403,129 @@ class _ChatViewState extends State<ChatView> {
                   ),
           ),
           const SizedBox(height: 12),
+          if (isSearchActive)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  _isSearching
+                      ? 'Đang tìm kiếm tin nhắn...'
+                      : isDisplayingEmptySearch
+                          ? 'Không có kết quả cho "$_searchKeyword".'
+                          : 'Đang hiển thị kết quả tìm kiếm cho "$_searchKeyword".',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ),
+            ),
           if (_replyTo != null) _buildReplyPreview(_replyTo!),
           if (_editingMessage != null) _buildEditingBanner(_editingMessage!),
           _buildInputArea(),
         ],
       ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    final theme = Theme.of(context);
+    final canRefresh = !_controller.isRefreshing && !_controller.isLoading;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 260),
+                transitionBuilder: (child, animation) => ClipRect(
+                  child: SizeTransition(
+                    sizeFactor: animation,
+                    axis: Axis.horizontal,
+                    axisAlignment: -1.0,
+                    child: child,
+                  ),
+                ),
+                child: _isSearchVisible
+                    ? Container(
+                        key: const ValueKey('search-field'),
+                        height: 44,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search, color: Color(0xFF64748B)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _searchController,
+                                focusNode: _searchFocusNode,
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  hintText: 'Tìm tin nhắn (≥ 2 ký tự)...',
+                                ),
+                                onChanged: _onSearchChanged,
+                                onSubmitted: (value) =>
+                                    _performSearch(value.trim()),
+                              ),
+                            ),
+                            if (_searchKeyword.isNotEmpty)
+                              IconButton(
+                                tooltip: 'Xóa tìm kiếm',
+                                onPressed: () {
+                                  setState(() {
+                                    _clearSearchState();
+                                  });
+                                  _searchFocusNode.requestFocus();
+                                },
+                                icon: const Icon(Icons.close, size: 18),
+                              ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(
+                        key: ValueKey('search-placeholder'),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.tonalIcon(
+              onPressed: _toggleSearch,
+              icon: Icon(_isSearchVisible ? Icons.close : Icons.search),
+              label: Text(_isSearchVisible ? 'Đóng' : 'Tìm kiếm'),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'Làm mới hội thoại',
+              onPressed: canRefresh
+                  ? () => _controller.refreshMessages(showLoading: true)
+                  : null,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
+        if (_isSearchVisible)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Nhập từ khóa để tìm trong lịch sử hội thoại.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 
