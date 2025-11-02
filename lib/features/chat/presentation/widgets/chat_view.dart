@@ -35,6 +35,7 @@ class _ChatViewState extends State<ChatView> {
   bool _isSearchVisible = false;
   bool _isSearching = false;
   String _searchKeyword = '';
+  final Set<int> _selectedMessageIds = <int>{};
 
   @override
   void initState() {
@@ -63,6 +64,21 @@ class _ChatViewState extends State<ChatView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
     _previousMessageCount = currentCount;
+
+    if (_selectedMessageIds.isNotEmpty) {
+      final availableIds = {
+        ..._controller.messages.map((message) => message.id),
+        ..._searchResults.map((message) => message.id),
+      };
+      final removed =
+          _selectedMessageIds.difference(availableIds).isNotEmpty;
+      _selectedMessageIds.removeWhere((id) => !availableIds.contains(id));
+      if (removed && _selectedMessageIds.isEmpty) {
+        // Do not call _clearSelection() here to avoid nested setState.
+        _selectedMessageIds.clear();
+      }
+    }
+
     if (mounted) {
       setState(() {});
     }
@@ -101,6 +117,7 @@ class _ChatViewState extends State<ChatView> {
         _replyTo = null;
         _editingMessage = null;
         _textController.clear();
+        _selectedMessageIds.clear();
       });
       _inputFocusNode.requestFocus();
     } catch (error) {
@@ -124,6 +141,7 @@ class _ChatViewState extends State<ChatView> {
       _editingMessage = message;
       _replyTo = null;
       _textController.text = message.content;
+      _selectedMessageIds.clear();
     });
     _textController.selection = TextSelection.fromPosition(
       TextPosition(offset: _textController.text.length),
@@ -149,6 +167,13 @@ class _ChatViewState extends State<ChatView> {
     _searchResults = const [];
     _searchKeyword = '';
     _isSearching = false;
+  }
+
+  void _clearSelection() {
+    if (_selectedMessageIds.isEmpty) return;
+    setState(() {
+      _selectedMessageIds.clear();
+    });
   }
 
   void _onSearchChanged(String value) {
@@ -222,6 +247,92 @@ class _ChatViewState extends State<ChatView> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã xóa tin nhắn.')),
       );
+      _selectedMessageIds.remove(message.id);
+      setState(() {});
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
+  void _toggleSelection(ChatMessage message, bool isMine) {
+    if (!isMine) {
+      return;
+    }
+
+    setState(() {
+      if (_selectedMessageIds.contains(message.id)) {
+        _selectedMessageIds.remove(message.id);
+      } else {
+        _selectedMessageIds.add(message.id);
+      }
+    });
+  }
+
+  ChatMessage? _findMessageById(int id) {
+    for (final message in _controller.messages) {
+      if (message.id == id) return message;
+    }
+    for (final message in _searchResults) {
+      if (message.id == id) return message;
+    }
+    return null;
+  }
+
+  Future<void> _startEditingSelectedMessage() async {
+    if (_selectedMessageIds.length != 1) return;
+    final id = _selectedMessageIds.first;
+    final message = _findMessageById(id);
+    if (message == null) {
+      _clearSelection();
+      return;
+    }
+    _handleEdit(message);
+  }
+
+  Future<void> _handleBulkDeleteSelection() async {
+    if (_selectedMessageIds.isEmpty) return;
+    final ids = _selectedMessageIds.toList();
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Xóa tin nhắn đã chọn'),
+        content: Text(
+          ids.length == 1
+              ? 'Bạn có chắc chắn muốn xóa tin nhắn này?'
+              : 'Bạn có chắc chắn muốn xóa ${ids.length} tin nhắn đã chọn?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      for (final id in ids) {
+        await _controller.deleteMessage(id);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ids.length == 1
+              ? 'Đã xóa tin nhắn.'
+              : 'Đã xóa ${ids.length} tin nhắn.'),
+        ),
+      );
+      _clearSelection();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -320,6 +431,7 @@ class _ChatViewState extends State<ChatView> {
         isSearchActive ? _searchResults : messages;
     final isDisplayingEmptySearch =
         isSearchActive && !_isSearching && displayMessages.isEmpty;
+    final isSelectionMode = _selectedMessageIds.isNotEmpty;
 
     return Padding(
       padding: padding,
@@ -391,12 +503,25 @@ class _ChatViewState extends State<ChatView> {
                         final isMine = currentEmail != null &&
                             senderEmail != null &&
                             senderEmail == currentEmail;
+                        final isSelected =
+                            _selectedMessageIds.contains(message.id);
                         return ChatMessageBubble(
                           message: message,
                           isMine: isMine,
-                          onReply: _handleReply,
-                          onEdit: isMine ? _handleEdit : null,
-                          onDelete: isMine ? _handleDelete : null,
+                          selectionMode: isSelectionMode,
+                          isSelected: isSelected,
+                          onTap: isSelectionMode
+                              ? () => _toggleSelection(message, isMine)
+                              : null,
+                          onLongPress:
+                              isMine ? () => _toggleSelection(message, isMine) : null,
+                          onReply:
+                              isSelectionMode ? null : _handleReply,
+                          onEdit:
+                              isMine && !isSelectionMode ? _handleEdit : null,
+                          onDelete: isMine && !isSelectionMode
+                              ? _handleDelete
+                              : null,
                         );
                       },
                     ),
@@ -430,8 +555,11 @@ class _ChatViewState extends State<ChatView> {
   }
 
   Widget _buildToolbar() {
+    if (_selectedMessageIds.isNotEmpty) {
+      return _buildSelectionToolbar();
+    }
+
     final theme = Theme.of(context);
-    final canRefresh = !_controller.isRefreshing && !_controller.isLoading;
 
     return Column(
       children: [
@@ -501,14 +629,6 @@ class _ChatViewState extends State<ChatView> {
               icon: Icon(_isSearchVisible ? Icons.close : Icons.search),
               label: Text(_isSearchVisible ? 'Đóng' : 'Tìm kiếm'),
             ),
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: 'Làm mới hội thoại',
-              onPressed: canRefresh
-                  ? () => _controller.refreshMessages(showLoading: true)
-                  : null,
-              icon: const Icon(Icons.refresh),
-            ),
           ],
         ),
         if (_isSearchVisible)
@@ -524,6 +644,59 @@ class _ChatViewState extends State<ChatView> {
               ),
             ),
           ),
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildSelectionToolbar() {
+    final count = _selectedMessageIds.length;
+    final canEdit = count == 1 && !_controller.isMutating;
+    final canDelete = !_controller.isMutating && count > 0;
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Hủy chọn',
+                onPressed: _controller.isMutating ? null : _clearSelection,
+                icon: const Icon(Icons.close),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  count == 1
+                      ? 'Đang chọn 1 tin nhắn'
+                      : 'Đang chọn $count tin nhắn',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+              ),
+              if (canEdit)
+                IconButton(
+                  tooltip: 'Chỉnh sửa tin nhắn',
+                  onPressed: _startEditingSelectedMessage,
+                  icon: const Icon(Icons.edit),
+                ),
+              IconButton(
+                tooltip: 'Xóa tin nhắn đã chọn',
+                onPressed:
+                    canDelete ? _handleBulkDeleteSelection : null,
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 12),
       ],
     );
