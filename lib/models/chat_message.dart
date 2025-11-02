@@ -115,6 +115,47 @@ class ChatMessage {
       return null;
     }
 
+    int? resolveReplyId() {
+      final direct = _parseInt(json['replyToMessageId']);
+      if (direct != null && direct > 0) {
+        return direct;
+      }
+
+      final reply = json['reply'];
+      if (reply is Map<String, dynamic>) {
+        final nestedId = _parseInt(reply['replyToMessageId']) ??
+            _parseInt(reply['id']) ??
+            _parseInt(reply['messageId']);
+        if (nestedId != null && nestedId > 0) {
+          return nestedId;
+        }
+      }
+
+      return null;
+    }
+
+    String? resolveReplyContent() {
+      final direct = json['replyToContent'];
+      if (direct is String && direct.isNotEmpty) {
+        return direct;
+      }
+
+      final reply = json['reply'];
+      if (reply is Map<String, dynamic>) {
+        final nested = reply['replyToContent'];
+        if (nested is String && nested.isNotEmpty) {
+          return nested;
+        }
+
+        final content = reply['content'];
+        if (content is String && content.isNotEmpty) {
+          return content;
+        }
+      }
+
+      return null;
+    }
+
     return ChatMessage(
       id: _parseInt(json['id']) ?? 0,
       groupId: _parseInt(json['groupId']) ?? 0,
@@ -133,8 +174,8 @@ class ChatMessage {
       createdAt: parseDate(json['createdAt']) ?? DateTime.now(),
       updatedAt: parseDate(json['updatedAt']),
       isEdited: json['isEdited'] == true || json['edited'] == true,
-      replyToMessageId: _parseInt(json['replyToMessageId']),
-      replyToContent: json['replyToContent'] as String?,
+      replyToMessageId: resolveReplyId(),
+      replyToContent: resolveReplyContent(),
     );
   }
 
