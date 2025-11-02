@@ -1,3 +1,4 @@
+import 'package:booking_group_flutter/features/chat/presentation/pages/chat_page.dart';
 import 'package:booking_group_flutter/features/home/presentation/pages/home_page.dart';
 import 'package:booking_group_flutter/features/notifications/application/notification_controller.dart';
 import 'package:booking_group_flutter/features/notifications/presentation/pages/notification_page.dart';
@@ -26,6 +27,7 @@ class _AppShellState extends State<AppShell> {
     _pageController = PageController(initialPage: _currentIndex);
     _pages = [
       const HomePage(),
+      const ChatPage(),
       NotificationPage(controller: _notificationController),
       const ProfilePage(),
     ];
@@ -63,7 +65,7 @@ class _AppShellState extends State<AppShell> {
               _currentIndex = index;
             });
           }
-          if (index == 1) {
+          if (index == 2) {
             _refreshNotifications();
           }
         },
@@ -77,6 +79,7 @@ class _AppShellState extends State<AppShell> {
             final unreadCount = _notificationController.unreadCount;
             final navItems = [
               const RoundedNavItem(icon: Icons.home_outlined),
+              const RoundedNavItem(icon: Icons.chat_bubble_outline),
               RoundedNavItem(
                 icon: unreadCount > 0
                     ? Icons.notifications
@@ -94,7 +97,7 @@ class _AppShellState extends State<AppShell> {
                 setState(() {
                   _currentIndex = index;
                 });
-                if (index == 1) {
+                if (index == 2) {
                   _refreshNotifications();
                 }
                 _pageController.animateToPage(

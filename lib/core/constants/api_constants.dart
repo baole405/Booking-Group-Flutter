@@ -112,6 +112,44 @@ class ApiConstants {
     return '$baseApiUrl$ideas/group/$groupId';
   }
 
+  // Chat Endpoints
+  static const String chat = '/chat';
+  static String get chatBaseUrl => '$baseApiUrl$chat';
+
+  static String getGroupChatMessagesUrl(
+    int groupId, {
+    int page = 1,
+    int size = 50,
+  }) {
+    return '$chatBaseUrl/groups/$groupId/messages?page=$page&size=$size';
+  }
+
+  static String createChatMessageUrl() {
+    return '$chatBaseUrl/messages';
+  }
+
+  static String updateChatMessageUrl(int messageId) {
+    return '$chatBaseUrl/messages/$messageId';
+  }
+
+  static String deleteChatMessageUrl(int messageId) {
+    return '$chatBaseUrl/messages/$messageId';
+  }
+
+  static String getChatMessageDetailUrl(int messageId) {
+    return '$chatBaseUrl/messages/$messageId';
+  }
+
+  static String searchGroupChatMessagesUrl(
+    int groupId,
+    String keyword, {
+    int page = 1,
+    int size = 50,
+  }) {
+    final encodedKeyword = Uri.encodeQueryComponent(keyword);
+    return '$chatBaseUrl/groups/$groupId/search?keyword=$encodedKeyword&page=$page&size=$size';
+  }
+
   static String getIdeaUrl(int ideaId) {
     return '$baseApiUrl$ideas/$ideaId';
   }

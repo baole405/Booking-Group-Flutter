@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:booking_group_flutter/features/chat/presentation/widgets/chat_view.dart';
 import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/group_ideas_page.dart';
 import 'package:booking_group_flutter/features/forum/presentation/widgets/forum_comment_profile_sheet.dart';
@@ -264,6 +265,8 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
           const SizedBox(height: 24),
           _buildIdeasCard(),
           const SizedBox(height: 24),
+          _buildChatAccessCard(),
+          const SizedBox(height: 24),
           _buildVotePanel(),
           if (_isLeader) ...[
             const SizedBox(height: 24),
@@ -280,6 +283,117 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildChatAccessCard() {
+    final group = _myGroup;
+    if (group == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: _isBusy ? null : () => _openChatPopup(group.id),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.chat_bubble_outline,
+                  color: Color(0xFF6366F1),
+                  size: 32,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Group chat',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Trao đổi nhanh với các thành viên trong nhóm.',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.open_in_new, color: Colors.grey, size: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openChatPopup(int groupId) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return FractionallySizedBox(
+          heightFactor: 0.9,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            child: Material(
+              color: Colors.white,
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 5,
+                        margin: const EdgeInsets.only(top: 12, bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                      ),
+                      const Text(
+                        'Group chat',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ChatView(
+                          groupId: groupId,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
