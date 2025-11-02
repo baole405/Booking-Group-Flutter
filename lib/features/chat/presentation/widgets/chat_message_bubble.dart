@@ -12,6 +12,10 @@ class ChatMessageBubble extends StatelessWidget {
     this.onReply,
     this.onEdit,
     this.onDelete,
+    this.selectionMode = false,
+    this.isSelected = false,
+    this.onTap,
+    this.onLongPress,
   });
 
   final ChatMessage message;
@@ -19,12 +23,20 @@ class ChatMessageBubble extends StatelessWidget {
   final ChatMessageActionCallback? onReply;
   final ChatMessageActionCallback? onEdit;
   final ChatMessageActionCallback? onDelete;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   Color get _bubbleColor => isMine
       ? const Color(0xFF8B5CF6)
       : const Color(0xFFF1F5F9);
 
   Color get _textColor => isMine ? Colors.white : const Color(0xFF1F2937);
+
+  Color get _selectionColor => isMine
+      ? const Color(0xFF8B5CF6).withValues(alpha: 0.18)
+      : const Color(0xFFCBD5F5).withValues(alpha: 0.3);
 
   BorderRadius get _borderRadius => BorderRadius.only(
         topLeft: const Radius.circular(18),
@@ -73,70 +85,101 @@ class ChatMessageBubble extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment:
-            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
-        children: [
-          if (!isMine)
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
-              child: Text(
-                _initials(message.senderName),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF8B5CF6),
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? _selectionColor : null,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment:
+                isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isMine)
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor:
+                      const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                  child: Text(
+                    _initials(message.senderName),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF8B5CF6),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          if (!isMine) const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment:
-                  isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: isMine
-                      ? MainAxisAlignment.end
-                      : MainAxisAlignment.start,
+              if (!isMine) const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment:
+                      isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        message.senderName,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isMine
-                              ? const Color.fromARGB(255, 230, 223, 255)
-                              : const Color(0xFF1F2937),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: isMine
+                          ? MainAxisAlignment.end
+                          : MainAxisAlignment.start,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            message.senderName,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: isMine
+                                  ? const Color.fromARGB(255, 230, 223, 255)
+                                  : const Color(0xFF1F2937),
+                            ),
+                          ),
                         ),
-                      ),
+                        if (!selectionMode)
+                          PopupMenuButton<_MessageAction>(
+                            onSelected: (action) {
+                              switch (action) {
+                                case _MessageAction.reply:
+                                  onReply?.call(message);
+                                  break;
+                                case _MessageAction.edit:
+                                  onEdit?.call(message);
+                                  break;
+                                case _MessageAction.delete:
+                                  onDelete?.call(message);
+                                  break;
+                              }
+                            },
+                            icon: Icon(
+                              Icons.more_vert,
+                              size: 18,
+                              color: isMine
+                                  ? const Color.fromARGB(255, 230, 223, 255)
+                                  : Colors.black45,
+                            ),
+                            itemBuilder: (_) => actions,
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: isMine
+                                ? Icon(
+                                    isSelected
+                                        ? Icons.check_circle
+                                        : Icons.radio_button_unchecked,
+                                    size: 18,
+                                    color: isSelected
+                                        ? const Color(0xFF8B5CF6)
+                                        : const Color(0xFFCBD5F5),
+                                  )
+                                : const SizedBox(width: 18, height: 18),
+                          ),
+                      ],
                     ),
-                    PopupMenuButton<_MessageAction>(
-                      onSelected: (action) {
-                        switch (action) {
-                          case _MessageAction.reply:
-                            onReply?.call(message);
-                          case _MessageAction.edit:
-                            onEdit?.call(message);
-                          case _MessageAction.delete:
-                            onDelete?.call(message);
-                        }
-                      },
-                      icon: Icon(
-                        Icons.more_vert,
-                        size: 18,
-                        color: isMine
-                            ? const Color.fromARGB(255, 230, 223, 255)
-                            : Colors.black45,
-                      ),
-                      itemBuilder: (_) => actions,
-                    ),
-                  ],
-                ),
                 if (message.hasReply && message.replyToContent != null)
                   Container(
                     margin: const EdgeInsets.only(top: 6, bottom: 4),
@@ -211,6 +254,7 @@ class ChatMessageBubble extends StatelessWidget {
               ),
             ),
         ],
+        ),
       ),
     );
   }
