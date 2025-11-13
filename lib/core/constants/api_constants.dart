@@ -112,6 +112,14 @@ class ApiConstants {
     return '$baseApiUrl$ideas/group/$groupId';
   }
 
+  // Chatbot Endpoints
+  static const String chatbot = '/chatbot';
+  static String get chatbotUrl => '$baseApiUrl$chatbot';
+  static String chatbotHistoryUrl({int limit = 20}) {
+    final safeLimit = limit.clamp(1, 100);
+    return '$baseApiUrl$chatbot/history?limit=$safeLimit';
+  }
+
   // Chat Endpoints
   static const String chat = '/chat';
   static String get chatBaseUrl => '$baseApiUrl$chat';
