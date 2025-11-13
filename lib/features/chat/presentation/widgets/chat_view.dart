@@ -425,6 +425,7 @@ class _ChatViewState extends State<ChatView> {
     final isLoading = _controller.isLoading && messages.isEmpty;
     final errorMessage = _controller.errorMessage;
     final currentEmail = _controller.currentUserEmail;
+    final currentUserId = _controller.currentUserId;
     final isSearchActive =
         _isSearchVisible && _searchKeyword.trim().length >= 2;
     final displayMessages =
@@ -499,10 +500,14 @@ class _ChatViewState extends State<ChatView> {
                         }
 
                         final message = displayMessages[index];
-                        final senderEmail = message.senderEmail?.toLowerCase();
-                        final isMine = currentEmail != null &&
-                            senderEmail != null &&
-                            senderEmail == currentEmail;
+                        final senderEmail =
+                            message.senderEmail?.trim().toLowerCase();
+                        final isMine = (currentEmail != null &&
+                                senderEmail != null &&
+                                senderEmail == currentEmail) ||
+                            (currentUserId != null &&
+                                currentUserId > 0 &&
+                                message.senderId == currentUserId);
                         final isSelected =
                             _selectedMessageIds.contains(message.id);
                         return ChatMessageBubble(
