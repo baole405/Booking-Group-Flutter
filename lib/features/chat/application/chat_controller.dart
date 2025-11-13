@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:booking_group_flutter/core/services/api_service.dart';
 import 'package:booking_group_flutter/models/chat_message.dart';
 import 'package:booking_group_flutter/resources/chat_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,6 +20,7 @@ class ChatController extends ChangeNotifier {
   bool _isSending = false;
   bool _isUpdating = false;
   bool _isDeleting = false;
+  int? _currentUserId;
   String? _errorMessage;
   String? _currentUserEmail;
 
@@ -30,13 +32,40 @@ class ChatController extends ChangeNotifier {
   bool get isDeleting => _isDeleting;
   bool get isMutating => _isSending || _isUpdating || _isDeleting;
   String? get errorMessage => _errorMessage;
+  int? get currentUserId => _currentUserId;
   String? get currentUserEmail => _currentUserEmail;
 
   /// Initializes the controller by loading the first page and starting polling.
   Future<void> initialize() async {
-    _currentUserEmail = FirebaseAuth.instance.currentUser?.email?.toLowerCase();
+    await _loadCurrentUserIdentity();
     await refreshMessages(showLoading: true);
     _startPolling();
+  }
+
+  Future<void> _loadCurrentUserIdentity() async {
+    _currentUserEmail = FirebaseAuth.instance.currentUser?.email?.toLowerCase();
+
+    try {
+      final myInfo = await ApiService().getMyInfo();
+      if (myInfo != null) {
+        final backendEmail = (myInfo['email'] as String?)?.toLowerCase();
+        final backendId = myInfo['id'];
+
+        _currentUserEmail ??= backendEmail;
+        final parsedId = backendId is int
+            ? backendId
+            : backendId is num
+                ? backendId.toInt()
+                : backendId is String
+                    ? int.tryParse(backendId)
+                    : null;
+        if (parsedId != null) {
+          _currentUserId = parsedId;
+        }
+      }
+    } catch (error) {
+      debugPrint('ChatController: failed to load user identity -> $error');
+    }
   }
 
   Future<void> refreshMessages({bool showLoading = false}) async {
