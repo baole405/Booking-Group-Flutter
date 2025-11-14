@@ -4,14 +4,26 @@ import 'package:booking_group_flutter/core/constants/api_constants.dart';
 import 'package:booking_group_flutter/models/idea.dart';
 import 'package:booking_group_flutter/models/post.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ForumApi {
+  Future<String?> _getBearerToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('bearerToken');
+  }
+
   /// Get all posts
   Future<List<Post>> getAllPosts() async {
     try {
+      final headers = <String, String>{'accept': '*/*'};
+      final token = await _getBearerToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/api/posts'),
-        headers: {'accept': '*/*'},
+        headers: headers,
       );
 
       print('📝 Get all posts - Status: ${response.statusCode}');
@@ -32,9 +44,15 @@ class ForumApi {
   /// Get all ideas (admin/teacher only)
   Future<List<Idea>> getAllIdeas() async {
     try {
+      final headers = <String, String>{'accept': '*/*'};
+      final token = await _getBearerToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
       final response = await http.get(
         Uri.parse('${ApiConstants.baseUrl}/api/ideas'),
-        headers: {'accept': '*/*'},
+        headers: headers,
       );
 
       print('💡 Get all ideas - Status: ${response.statusCode}');

@@ -1,6 +1,7 @@
 import 'package:booking_group_flutter/models/major.dart';
 
 class UserProfile {
+  final int? id;
   final String? studentCode;
   final String fullName;
   final String email;
@@ -11,6 +12,7 @@ class UserProfile {
   final bool isActive;
 
   UserProfile({
+    this.id,
     this.studentCode,
     required this.fullName,
     required this.email,
@@ -23,6 +25,13 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
+      id: json['id'] is int
+          ? json['id'] as int
+          : json['id'] is num
+              ? (json['id'] as num).toInt()
+              : json['id'] is String
+                  ? int.tryParse(json['id'])
+                  : null,
       studentCode: json['studentCode'] as String?,
       fullName: json['fullName'] as String? ?? '',
       email: json['email'] as String? ?? '',
@@ -36,6 +45,7 @@ class UserProfile {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'studentCode': studentCode,
       'fullName': fullName,
       'email': email,

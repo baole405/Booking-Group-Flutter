@@ -29,7 +29,7 @@ class InformationAccessSection extends StatelessWidget {
         title: 'Idea',
         subtitle: 'Ý tưởng',
         icon: Icons.lightbulb_outline,
-        backgroundColor: const Color(0xFFF59E0B), // Amber
+        backgroundColor: const Color(0xFF10B981), // Green
         iconColor: Colors.white,
         onTap: onIdeaTap,
       ),
@@ -37,7 +37,7 @@ class InformationAccessSection extends StatelessWidget {
         title: 'Updating...',
         subtitle: 'Sắp ra mắt',
         icon: Icons.more_horiz,
-        backgroundColor: const Color(0xFF6B7280), // Gray
+        backgroundColor: const Color(0xFF10B981), // Green
         iconColor: Colors.white,
         onTap: () {
           // Do nothing for now
@@ -75,3 +75,4 @@ class InformationAccessSection extends StatelessWidget {
     );
   }
 }
+

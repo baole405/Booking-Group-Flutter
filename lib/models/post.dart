@@ -18,9 +18,13 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
+    final dynamic userJson = json['userResponse'] ?? json['user'];
+
     return Post(
       id: json['id'] ?? 0,
-      userResponse: UserResponse.fromJson(json['userResponse'] ?? {}),
+      userResponse: UserResponse.fromJson(
+        userJson is Map<String, dynamic> ? userJson : <String, dynamic>{},
+      ),
       groupResponse: json['groupResponse'] != null
           ? GroupResponse.fromJson(json['groupResponse'])
           : null,

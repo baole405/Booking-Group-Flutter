@@ -1,4 +1,3 @@
-import 'package:booking_group_flutter/core/services/api_service.dart';
 import 'package:booking_group_flutter/features/forum/presentation/pages/forum_page.dart';
 import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/home/presentation/widgets/error_state_widget.dart';
@@ -17,7 +16,6 @@ import 'package:booking_group_flutter/resources/my_group_api.dart';
 import 'package:booking_group_flutter/resources/semesters_api.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
@@ -27,8 +25,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  final ApiService _apiService = ApiService();
+class _HomePageState extends State<HomePage>
+    with AutomaticKeepAliveClientMixin<HomePage> {
   final JoinRequestApi _joinRequestApi = JoinRequestApi();
   final MyGroupApi _myGroupApi = MyGroupApi();
   final SemestersApi _semestersApi = SemestersApi();
@@ -37,6 +35,7 @@ class _HomePageState extends State<HomePage> {
   bool _isLoading = true;
   String? _error;
   String? _userEmail;
+  String? _userName;
   int _requestCount = 0;
   MyGroup? _myGroup;
   JoinRequest? _latestPendingRequest;
@@ -44,6 +43,11 @@ class _HomePageState extends State<HomePage> {
   String? _latestRequestTimeLabel;
   String? _activeSemesterName;
   bool _isSemesterLoading = false;
+  bool _hasAttemptedSemesterLoad = false;
+  bool _hasPinnedSemester = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
@@ -52,7 +56,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// Load user data
-  Future<void> _loadUserData() async {
+  Future<void> _loadUserData({bool forceSemesterReload = false}) async {
     setState(() {
       _isLoading = true;
       _error = null;
@@ -63,11 +67,20 @@ class _HomePageState extends State<HomePage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         _userEmail = user.email;
+        final displayName = user.displayName?.trim();
+        if (displayName?.isNotEmpty == true) {
+          _userName = displayName;
+        } else if ((user.email ?? '').isNotEmpty) {
+          _userName = user.email!.split('@').first;
+        }
+      } else {
+        _userEmail = null;
+        _userName = null;
       }
 
       // Load group & join requests information
       await _loadGroupAndRequests();
-      await _loadActiveSemester();
+      await _loadActiveSemester(force: forceSemesterReload);
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -84,8 +97,14 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadActiveSemester() async {
-    if (!mounted) return;
+  Future<void> _loadActiveSemester({bool force = false}) async {
+    if (!mounted || _isSemesterLoading) return;
+
+    final hasCachedSemester = _activeSemesterName?.isNotEmpty == true;
+    if (!force && _hasPinnedSemester && hasCachedSemester) {
+      return;
+    }
+
     setState(() {
       _isSemesterLoading = true;
     });
@@ -93,20 +112,33 @@ class _HomePageState extends State<HomePage> {
     try {
       final semester = await _semestersApi.fetchActiveSemester();
       if (!mounted) return;
+      final nextName = semester?.name.trim();
       setState(() {
-        _activeSemesterName = semester?.name;
+        if (nextName?.isNotEmpty == true) {
+          _activeSemesterName = nextName;
+          _hasPinnedSemester = true;
+        } else if (force) {
+          _activeSemesterName = null;
+          _hasPinnedSemester = false;
+        }
+        _hasAttemptedSemesterLoad = true;
       });
     } catch (e) {
       print('? Error loading active semester: $e');
       if (!mounted) return;
       setState(() {
-        _activeSemesterName = null;
+        if (!hasCachedSemester) {
+          _activeSemesterName = null;
+          _hasPinnedSemester = false;
+        }
+        _hasAttemptedSemesterLoad = true;
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isSemesterLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSemesterLoading = false;
+        });
+      }
     }
   }
 
@@ -253,55 +285,14 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
-  /// Logout handler
-  Future<void> _handleLogout() async {
-    try {
-      // Show confirmation dialog
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Logout'),
-          content: const Text('Are you sure you want to logout?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Logout'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true) return;
-
-      // Logout from all services
-      await GoogleSignIn().signOut();
-      await FirebaseAuth.instance.signOut();
-      await _apiService.logout();
-
-      if (mounted) {
-        // Navigate to login page
-        Navigator.of(context).pushReplacementNamed('/login');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
-      }
-    }
-  }
-
   // Refresh data
   Future<void> _handleRefresh() async {
-    await _loadUserData();
+    await _loadUserData(forceSemesterReload: true);
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
@@ -312,9 +303,10 @@ class _HomePageState extends State<HomePage> {
               SliverToBoxAdapter(
                 child: HomeHeader(
                   userEmail: _userEmail,
-                  onLogout: _handleLogout,
+                  userName: _userName,
                   semesterName: _activeSemesterName,
                   isSemesterLoading: _isSemesterLoading,
+                  hasAttemptedSemesterLoad: _hasAttemptedSemesterLoad,
                 ),
               ),
 

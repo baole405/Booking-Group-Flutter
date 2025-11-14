@@ -13,9 +13,15 @@ class CommentsApi {
 
   Future<List<Comment>> getCommentsByPost(int postId) async {
     try {
+      final headers = <String, String>{'accept': '*/*'};
+      final token = await _getBearerToken();
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
       final response = await http.get(
         Uri.parse(ApiConstants.getPostCommentsUrl(postId)),
-        headers: {'accept': '*/*'},
+        headers: headers,
       );
 
       if (response.statusCode == 200) {

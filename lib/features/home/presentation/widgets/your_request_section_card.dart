@@ -25,18 +25,18 @@ class YourRequestSectionCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
+          gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF8B5CF6), // Purple
-              const Color(0xFF8B5CF6).withOpacity(0.8),
+              Color(0xFFFDBA74), // Soft orange
+              Color(0xFFF97316), // Vibrant orange
             ],
           ),
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF8B5CF6).withOpacity(0.3),
+              color: const Color(0xFFF97316).withOpacity(0.25),
               blurRadius: 12,
               offset: const Offset(0, 6),
             ),

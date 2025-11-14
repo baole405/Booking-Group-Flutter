@@ -20,7 +20,7 @@ class GroupsYourGroupSection extends StatelessWidget {
         title: 'Groups',
         subtitle: 'Khám phá nhóm',
         icon: Icons.groups_outlined,
-        backgroundColor: const Color(0xFF6366F1), // Indigo
+        backgroundColor: const Color(0xFFFDBA74), // Soft orange
         iconColor: Colors.white,
         onTap: onGroupsTap,
       ),
@@ -28,7 +28,7 @@ class GroupsYourGroupSection extends StatelessWidget {
         title: 'Your Group',
         subtitle: 'Nhóm của bạn',
         icon: Icons.group_outlined,
-        backgroundColor: const Color(0xFF8B5CF6), // Purple
+        backgroundColor: const Color(0xFFF97316), // Vibrant orange
         iconColor: Colors.white,
         onTap: onYourGroupTap,
       ),
@@ -66,3 +66,4 @@ class GroupsYourGroupSection extends StatelessWidget {
     );
   }
 }
+

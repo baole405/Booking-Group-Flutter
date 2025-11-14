@@ -20,6 +20,7 @@ class ApiConstants {
   static const String myInfo = '/users/myInfo';
   static String get myInfoUrl => '$baseApiUrl$myInfo';
   static String get updateMyInfoUrl => '$baseApiUrl$myInfo';
+  static String userAvatarUrl(int userId) => '$baseApiUrl/users/$userId/avatar';
 
   // Group Endpoints
   static const String groups = '/groups';

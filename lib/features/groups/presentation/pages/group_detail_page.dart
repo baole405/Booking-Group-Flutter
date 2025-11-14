@@ -220,8 +220,9 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
       }
     } catch (e) {
       if (mounted) {
+        final message = _buildJoinGroupErrorMessage(e, isFormingGroup);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -231,6 +232,21 @@ class _GroupDetailPageState extends State<GroupDetailPage> {
         });
       }
     }
+  }
+
+  String _buildJoinGroupErrorMessage(Object error, bool isFormingGroup) {
+    final rawMessage = error.toString();
+    final normalized = rawMessage.toLowerCase();
+    if (isFormingGroup && normalized.contains('major')) {
+      return 'Vui long cap nhat chuyen nganh trong trang Profile truoc khi tham gia nhom Forming.';
+    }
+
+    final cleaned =
+        rawMessage.replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
+    if (cleaned.isEmpty) {
+      return 'Khong the tham gia nhom. Vui long thu lai.';
+    }
+    return 'Khong the tham gia nhom: $cleaned';
   }
 
   @override

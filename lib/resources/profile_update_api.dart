@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:booking_group_flutter/core/constants/api_constants.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// API Service for Profile Update operations
@@ -64,5 +65,48 @@ class ProfileUpdateApi {
   /// Update major only (convenience method)
   Future<bool> updateMajor(int majorId) async {
     return updateProfile(majorId: majorId);
+  }
+
+  Future<Map<String, dynamic>?> uploadAvatar({
+    required int userId,
+    required String filePath,
+    MediaType? mediaType,
+  }) async {
+    try {
+      final token = await _getBearerToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse(ApiConstants.userAvatarUrl(userId)),
+      );
+      request.headers.addAll({'Authorization': 'Bearer $token', 'Accept': '*/*'});
+
+      final file = await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+        contentType: mediaType,
+      );
+      request.files.add(file);
+
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      if (streamedResponse.statusCode == 200) {
+        final Map<String, dynamic> jsonResponse =
+            jsonDecode(responseBody) as Map<String, dynamic>;
+        return jsonResponse['data'] as Map<String, dynamic>?;
+      }
+
+      final Map<String, dynamic> errorResponse =
+          jsonDecode(responseBody) as Map<String, dynamic>;
+      final message = errorResponse['message'] ?? 'Failed to upload avatar';
+      throw Exception(message);
+    } catch (e) {
+      print('? Error uploading avatar: $e');
+      rethrow;
+    }
   }
 }

@@ -8,6 +8,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -26,6 +28,8 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _googleEmail;
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isUploadingAvatar = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -219,6 +223,88 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  MediaType _mediaTypeFromPath(String path) {
+    final extension =
+        path.split('.').last.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+    switch (extension) {
+      case 'png':
+        return MediaType('image', 'png');
+      case 'gif':
+        return MediaType('image', 'gif');
+      case 'webp':
+        return MediaType('image', 'webp');
+      default:
+        return MediaType('image', 'jpeg');
+    }
+  }
+
+  Future<void> _handleChangeAvatar() async {
+    final userId = _userProfile?.id;
+    if (userId == null) {
+      _showSnack(
+        'Khong the cap nhat avatar khi chua dong bo ho so backend.',
+        color: Colors.red,
+      );
+      return;
+    }
+
+    final pickedImage = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1024,
+    );
+
+    if (pickedImage == null) {
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _isUploadingAvatar = true;
+    });
+
+    try {
+      final profileUpdateApi = ProfileUpdateApi();
+      final updatedData = await profileUpdateApi.uploadAvatar(
+        userId: userId,
+        filePath: pickedImage.path,
+        mediaType: _mediaTypeFromPath(pickedImage.path),
+      );
+
+      if (!mounted) return;
+
+      if (updatedData != null) {
+        setState(() {
+          _userProfile = UserProfile.fromJson(updatedData);
+        });
+      } else {
+        await _loadUserProfile();
+      }
+
+      if (!mounted) return;
+      _showSnack('Cap nhat avatar thanh cong!', color: Colors.green);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack('Khong the cap nhat avatar: $e', color: Colors.red);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingAvatar = false;
+        });
+      }
+    }
+  }
+
+  void _showSnack(String message, {Color? color}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -262,11 +348,19 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileContent() {
-    // Ưu tiên thông tin từ Google
-    final displayName = _googleName ?? _userProfile?.fullName ?? 'Người dùng';
+    // Ưu tiên thông tin backend nếu có
+    final backendName = (_userProfile?.fullName ?? '').trim();
+    final displayName =
+        backendName.isNotEmpty ? backendName : (_googleName ?? 'Nguoi dung');
     final displayEmail = _googleEmail ?? _userProfile?.email ?? '';
-    final displayAvatar = _googleAvatar ?? _userProfile?.avatarUrl;
+    String? displayAvatar = _userProfile?.avatarUrl;
+    if (displayAvatar == null || displayAvatar.isEmpty) {
+      displayAvatar = _googleAvatar;
+    }
     final hasAvatar = displayAvatar != null && displayAvatar.isNotEmpty;
+    final String? avatarUrl = hasAvatar ? displayAvatar : null;
+    final ImageProvider? avatarImage =
+        avatarUrl != null ? NetworkImage(avatarUrl) : null;
 
     return SingleChildScrollView(
       child: Column(
@@ -300,14 +394,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 // Avatar
                 Center(
                   child: Stack(
+                    clipBehavior: Clip.none,
                     children: [
                       CircleAvatar(
                         radius: 60,
                         backgroundColor: Colors.grey[200],
-                        backgroundImage: hasAvatar
-                            ? NetworkImage(displayAvatar)
-                            : null,
-                        child: !hasAvatar
+                        backgroundImage: avatarImage,
+                        child: avatarImage == null
                             ? Icon(
                                 Icons.person,
                                 size: 60,
@@ -316,24 +409,38 @@ class _ProfilePageState extends State<ProfilePage> {
                             : null,
                       ),
                       Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.lock,
-                            size: 16,
-                            color: Colors.grey,
+                        bottom: -2,
+                        right: -2,
+                        child: GestureDetector(
+                          onTap: _isUploadingAvatar ? null : _handleChangeAvatar,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color.fromRGBO(0, 0, 0, 0.12),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: _isUploadingAvatar
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.camera_alt_outlined,
+                                      size: 18,
+                                      color: Colors.black87,
+                                    ),
+                            ),
                           ),
                         ),
                       ),
