@@ -1,16 +1,17 @@
 import 'dart:async';
 
 import 'package:booking_group_flutter/features/chat/presentation/widgets/chat_view.dart';
+import 'package:booking_group_flutter/features/forum/presentation/widgets/forum_comment_profile_sheet.dart';
 import 'package:booking_group_flutter/features/groups/presentation/pages/groups_list_page.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/pages/group_ideas_page.dart';
-import 'package:booking_group_flutter/features/forum/presentation/widgets/forum_comment_profile_sheet.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_info_card.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/group_member_profile_sheet.dart';
 import 'package:booking_group_flutter/features/my_group/presentation/widgets/members_section.dart';
+import 'package:booking_group_flutter/features/my_group/presentation/widgets/teacher_selection_card.dart';
 import 'package:booking_group_flutter/models/group_member.dart';
-import 'package:booking_group_flutter/models/user_profile.dart';
 import 'package:booking_group_flutter/models/my_group.dart';
 import 'package:booking_group_flutter/models/post.dart';
+import 'package:booking_group_flutter/models/user_profile.dart';
 import 'package:booking_group_flutter/resources/my_group_api.dart';
 import 'package:booking_group_flutter/resources/notifications_api.dart';
 import 'package:booking_group_flutter/resources/votes_api.dart';
@@ -158,20 +159,20 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
       bool hasVoted = false;
 
       if (selectedVote != null) {
-        Map<String, dynamic> enrichedVote =
-            Map<String, dynamic>.from(selectedVote);
+        Map<String, dynamic> enrichedVote = Map<String, dynamic>.from(
+          selectedVote,
+        );
 
         try {
-          final detail =
-              await _votesApi.getVoteDetail(selectedVote['id'] as int);
+          final detail = await _votesApi.getVoteDetail(
+            selectedVote['id'] as int,
+          );
           enrichedVote.addAll(detail);
         } catch (error) {
           debugPrint('Failed to load vote detail: $error');
         }
 
-        choices = await _votesApi.getVoteChoices(
-          enrichedVote['id'] as int,
-        );
+        choices = await _votesApi.getVoteChoices(enrichedVote['id'] as int);
         final currentEmail = _currentUserEmail;
         if (currentEmail != null) {
           hasVoted = choices.any((choice) {
@@ -262,6 +263,11 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
             onMemberTap: _handleMemberTap,
             interactionsDisabled: _isBusy,
           ),
+          // Show teacher selection when group is LOCKED
+          if (_myGroup?.status.toUpperCase() == 'LOCKED' && _isLeader) ...[
+            const SizedBox(height: 24),
+            TeacherSelectionCard(groupId: _myGroup!.id, isLeader: _isLeader),
+          ],
           const SizedBox(height: 24),
           _buildIdeasCard(),
           const SizedBox(height: 24),
@@ -441,8 +447,7 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
     final emailText = targetUser != null
         ? targetUser.safeEmail
         : _readNullableString(vote['targetUserEmail']) ?? '';
-    final avatarUrl =
-        targetUser?.avatarUrl ?? _resolveVoteAvatarUrl(vote);
+    final avatarUrl = targetUser?.avatarUrl ?? _resolveVoteAvatarUrl(vote);
     final avatarImage = _createAvatarImage(avatarUrl);
     final avatarInitial =
         targetUser?.avatarInitial ?? _computeInitial(displayName);
@@ -490,9 +495,9 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
                   children: [
                     CircleAvatar(
                       radius: 20,
-                      backgroundColor: const Color(0xFF8B5CF6).withValues(
-                        alpha: 0.1,
-                      ),
+                      backgroundColor: const Color(
+                        0xFF8B5CF6,
+                      ).withValues(alpha: 0.1),
                       backgroundImage: avatarImage,
                       child: !hasAvatar
                           ? Text(
@@ -744,7 +749,8 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
 
     final target = vote['targetUser'];
     if (target is Map<String, dynamic>) {
-      final text = _readNullableString(target['fullName']) ??
+      final text =
+          _readNullableString(target['fullName']) ??
           _readNullableString(target['displayName']) ??
           _readNullableString(target['email']);
       if (text != null) return text;
@@ -848,10 +854,9 @@ class _MyGroupDetailPageState extends State<MyGroupDetailPage> {
         _currentUserEmail != null &&
         normalizedEmail.isNotEmpty &&
         normalizedEmail == _currentUserEmail;
-    final isMember = normalizedEmail.isNotEmpty &&
-        _members.any(
-          (member) => member.email.toLowerCase() == normalizedEmail,
-        );
+    final isMember =
+        normalizedEmail.isNotEmpty &&
+        _members.any((member) => member.email.toLowerCase() == normalizedEmail);
 
     await showModalBottomSheet(
       context: context,
